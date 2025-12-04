@@ -1,0 +1,2828 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Irregular Verbs Trainer | Trener Czasowników Nieregularnych</title>
+    <meta name="description" content="A comprehensive, cloud-synced trainer for English irregular verbs, designed for Polish learners. Features spaced repetition, multiple learning modes, and accessibility options.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+    
+    <style>
+        /* CSS Reset & Base Styles */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f4f6;
+            --bg-tertiary: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --text-accent: #3b82f6;
+            --text-on-accent: #ffffff;
+            --border-primary: #d1d5db;
+            --border-secondary: #e5e7eb;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #60a5fa;
+            --accent-primary-hover: #2563eb;
+            --success: #16a34a;
+            --warning: #facc15;
+            --error: #dc2626;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius-sm: 0.25rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --radius-2xl: 1.5rem;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: 'SFMono-Regular', Consolas, "Liberation Mono", Menlo, Courier, monospace;
+        }
+
+        .dark-theme {
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-tertiary: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --text-accent: #60a5fa;
+            --border-primary: #4b5563;
+            --border-secondary: #374151;
+        }
+        
+        .high-contrast-theme {
+            --bg-primary: #000000;
+            --bg-secondary: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #eeeeee;
+            --accent-primary: #ffff00;
+            --text-on-accent: #000000;
+            --accent-primary-hover: #dddd00;
+            --border-primary: #ffffff;
+            --success: #00ff00;
+            --error: #ff0000;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-family: var(--font-sans); line-height: 1.5; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-primary); color: var(--text-primary); font-size: 16px; transition: background-color 0.3s, color 0.3s; }
+        
+        /* Layout */
+        #app-container { display: flex; flex-direction: column; min-height: 100vh; }
+        .app-header { background-color: var(--bg-secondary); padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-primary); box-shadow: var(--shadow-sm); position: sticky; top: 0; z-index: 100; }
+        .header-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; gap: 1rem; }
+        .app-title { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); flex-shrink: 0; }
+        .app-title .icon { font-size: 1.5rem; margin-right: 0.5rem; }
+        #auth-status { font-size: 0.8rem; color: var(--text-secondary); text-align: right; overflow-wrap: break-word; word-break: break-all; }
+        .nav-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid var(--border-primary); background-color: var(--bg-secondary); padding: 0.5rem 1rem; }
+        .nav-tab {
+            padding: 0.5rem 1rem; border: none; background: none; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: var(--radius-md); transition: background-color 0.2s, color 0.2s;
+            border-bottom: 3px solid transparent;
+        }
+        .nav-tab.active { color: var(--text-accent); border-bottom-color: var(--text-accent); }
+        .nav-tab:hover:not(.active) { background-color: var(--bg-tertiary); color: var(--text-primary); }
+        
+        main { flex-grow: 1; padding: 1.5rem 1rem; max-width: 1200px; width: 100%; margin: 0 auto; }
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        #loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; }
+        .dark-theme #loading-overlay { background: rgba(0,0,0,0.8); }
+        
+        /* Components */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+            padding: 0.6rem 1.2rem; border-radius: var(--radius-lg); font-weight: 600;
+            border: 1px solid transparent; cursor: pointer; transition: all 0.2s;
+            text-decoration: none; white-space: nowrap;
+        }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary { background-color: var(--accent-primary); color: var(--text-on-accent); border-color: var(--accent-primary); }
+        .btn-primary:hover:not(:disabled) { background-color: var(--accent-primary-hover); border-color: var(--accent-primary-hover); }
+        .btn-secondary { background-color: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-primary); }
+        .btn-secondary:hover:not(:disabled) { background-color: var(--bg-tertiary); }
+        .btn-icon { padding: 0.5rem; }
+        
+        .card {
+            background-color: var(--bg-secondary); border-radius: var(--radius-2xl);
+            padding: 1.5rem; box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-secondary);
+        }
+        
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        .form-control {
+            width: 100%; padding: 0.75rem; border-radius: var(--radius-lg);
+            border: 1px solid var(--border-primary); background-color: var(--bg-primary);
+            color: var(--text-primary); font-size: 1rem; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-control:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 25%, transparent); }
+        
+        .modal {
+            position: fixed; inset: 0; background-color: rgba(0,0,0,0.6);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal.is-open { opacity: 1; visibility: visible; }
+        .modal-content {
+            background-color: var(--bg-primary); border-radius: var(--radius-2xl);
+            padding: 2rem; max-width: 90%; width: 500px;
+            box-shadow: var(--shadow-lg); transform: scale(0.95); transition: transform 0.3s;
+        }
+        .modal.is-open .modal-content { transform: scale(1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .modal-title { font-size: 1.5rem; font-weight: 700; }
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); }
+        
+        /* Explore View */
+        .filters-container {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem; margin-bottom: 1.5rem; padding: 1rem;
+            background-color: var(--bg-secondary); border-radius: var(--radius-xl);
+        }
+        #verb-table { width: 100%; border-collapse: collapse; }
+        #verb-table th, #verb-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-secondary); }
+        #verb-table th { font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+        #verb-table tbody tr { transition: background-color 0.2s; cursor: pointer; }
+        #verb-table tbody tr:hover { background-color: var(--bg-tertiary); }
+        .cefr-label { padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.8rem; }
+        .cefr-A1 { background-color: #dbeafe; color: #1e40af; }
+        .cefr-A2 { background-color: #dcfce7; color: #166534; }
+        .cefr-B1 { background-color: #fef9c3; color: #854d0e; }
+        .cefr-B2 { background-color: #fee2e2; color: #991b1b; }
+
+        /* Flashcard View */
+        #flashcard-container {
+            perspective: 1000px; max-width: 500px; margin: 2rem auto;
+        }
+        .flashcard {
+            width: 100%; height: 300px; position: relative;
+            transform-style: preserve-3d; transition: transform 0.6s;
+        }
+        .flashcard.is-flipped { transform: rotateY(180deg); }
+        .flashcard-face {
+            position: absolute; width: 100%; height: 100%;
+            -webkit-backface-visibility: hidden; backface-visibility: hidden;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 1rem; text-align: center;
+            background-color: var(--bg-secondary); border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-lg); border: 1px solid var(--border-secondary);
+        }
+        .flashcard-back { transform: rotateY(180deg); }
+        .flashcard-main-word { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; }
+        .flashcard-polish { font-size: 1.5rem; color: var(--text-secondary); }
+        .flashcard-forms { font-size: 1.25rem; font-weight: 600; }
+        .flashcard-example { font-style: italic; margin-top: 1rem; color: var(--text-secondary); }
+        #flashcard-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; margin-top: 1rem; }
+        #ai-helper-container { margin-top: 1rem; min-height: 150px; text-align: center; }
+        #ai-generated-image { max-width: 100%; max-height: 200px; border-radius: var(--radius-lg); margin: 0.5rem auto; display: block; }
+        #ai-prompt-editor { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
+        
+        /* Cloze View */
+        #cloze-sentence { font-size: 1.5rem; text-align: center; margin-bottom: 1.5rem; line-height: 1.6; }
+        #cloze-input {
+            font-size: 1.5rem; text-align: center; width: 200px;
+            border: none; border-bottom: 2px solid var(--border-primary);
+            background: transparent;
+        }
+        #cloze-input:focus { outline: none; border-bottom-color: var(--accent-primary); }
+
+        /* Listen View */
+        #listen-btn { font-size: 2rem; padding: 1rem 1.5rem; }
+        
+        /* Match View */
+        #match-container { display: flex; justify-content: space-around; gap: 2rem; }
+        .match-column { display: flex; flex-direction: column; gap: 1rem; flex: 1; }
+        .match-card {
+            padding: 1rem; border: 2px solid var(--border-primary);
+            border-radius: var(--radius-lg); cursor: pointer;
+            transition: all 0.2s; user-select: none;
+            text-align: center; font-weight: 600;
+        }
+        .match-card.selected { border-color: var(--accent-primary); background-color: color-mix(in srgb, var(--accent-primary) 20%, transparent); }
+        .match-card.correct { border-color: var(--success); background-color: color-mix(in srgb, var(--success) 20%, transparent); transform: scale(1.05); }
+        .match-card.incorrect { border-color: var(--error); background-color: color-mix(in srgb, var(--error) 20%, transparent); animation: shake 0.5s; }
+        
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+        /* Sprint View */
+        #sprint-timer { font-size: 2rem; font-weight: 700; color: var(--text-accent); }
+        #sprint-score { font-size: 1.5rem; font-weight: 600; }
+        #sprint-streak { font-size: 1.2rem; color: var(--warning); }
+        
+        /* Exam View */
+        #exam-results-list li {
+            padding: 0.5rem; border-radius: var(--radius-md); margin-bottom: 0.5rem;
+        }
+        #exam-results-list .correct { background-color: color-mix(in srgb, var(--success) 20%, transparent); }
+        #exam-results-list .incorrect { background-color: color-mix(in srgb, var(--error) 20%, transparent); }
+
+        /* Ranking View */
+        #ranking-table { width: 100%; border-collapse: collapse; }
+        #ranking-table th, #ranking-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-secondary); }
+        #ranking-table .rank { font-weight: bold; width: 50px; text-align: center; }
+        #ranking-table .score { font-weight: bold; }
+        #ranking-table .user-id { font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-secondary); }
+
+
+        /* Utility & Accessibility */
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+        .hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Print Styles */
+        @media print {
+            body, html { background-color: #fff !important; color: #000 !important; }
+            .app-header, .nav-tabs, .app-footer, .no-print, #worksheet-controls { display: none !important; }
+            main { padding: 0; max-width: 100%; }
+            .view, .view.active { display: none !important; }
+            #worksheet-output { display: block !important; }
+            .card { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+            table, tr, td, th { page-break-inside: avoid; }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <span data-i18n="loading">Ładowanie...</span>
+    </div>
+    <div id="app-container">
+        <header class="app-header no-print">
+            <div class="header-content">
+                <h1 class="app-title"><span class="icon">📚</span><span data-i18n="appTitle">Irregular Verbs</span></h1>
+                <div id="auth-status"></div>
+                <div class="header-controls">
+                    <button id="settings-btn" class="btn btn-secondary btn-icon" data-i18n-title="settings"><span aria-hidden="true">⚙️</span><span class="sr-only" data-i18n="settings">Ustawienia</span></button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="nav-tabs no-print">
+            <button class="nav-tab active" data-view="explore" data-i18n="tabExplore">Wzorce</button>
+            <button class="nav-tab" data-view="learn" data-i18n="tabLearn">Nauka</button>
+            <button class="nav-tab" data-view="conjugate" data-i18n="tabConjugate">Koniugacje</button>
+            <button class="nav-tab" data-view="cloze" data-i18n="tabCloze">Luki</button>
+            <button class="nav-tab" data-view="listen" data-i18n="tabListen">Słuchanie</button>
+            <button class="nav-tab" data-view="match" data-i18n="tabMatch">Dopasuj</button>
+            <button class="nav-tab" data-view="sprint" data-i18n="tabSprint">Sprint</button>
+            <button class="nav-tab" data-view="exam" data-i18n="tabExam">Egzamin</button>
+            <button class="nav-tab" data-view="custom-lists" data-i18n="tabCustomLists">Listy Własne</button>
+            <button class="nav-tab" data-view="worksheets" data-i18n="tabWorksheets">Arkusze</button>
+            <button class="nav-tab" data-view="ranking" data-i18n="tabRanking">Ranking</button>
+            <button class="nav-tab" data-view="stats" data-i18n="tabStats">Statystyki</button>
+        </nav>
+
+        <main>
+            <!-- Explore View -->
+            <section id="explore-view" class="view active">
+                <h2 data-i18n="exploreTitle">Przeglądaj Wzorce</h2>
+                <div class="filters-container card">
+                    <div class="form-group">
+                        <label for="search-input" data-i18n="searchLabel">Szukaj</label>
+                        <input type="search" id="search-input" class="form-control" data-i18n-placeholder="searchPlaceholder">
+                    </div>
+                    <div class="form-group">
+                        <label for="cefr-filter" data-i18n="cefrLabel">Poziom CEFR</label>
+                        <select id="cefr-filter" class="form-control">
+                            <option value="all" data-i18n="allOption">Wszystkie</option>
+                            <option value="A1">A1</option>
+                            <option value="A2">A2</option>
+                            <option value="B1">B1</option>
+                            <option value="B2">B2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="pattern-filter" data-i18n="patternLabel">Wzór</label>
+                        <select id="pattern-filter" class="form-control">
+                            <option value="all" data-i18n="allOption">Wszystkie</option>
+                        </select>
+                    </div>
+                     <div class="form-group">
+                        <label for="custom-list-filter" data-i18n="customListFilterLabel">Lista Własna</label>
+                        <select id="custom-list-filter" class="form-control">
+                            <option value="all" data-i18n="allOption">Wszystkie</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-actions" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                    <span id="verb-count-display"></span>
+                    <button id="practice-set-btn" class="btn btn-primary"><span data-i18n="practiceThisSet">Ćwicz ten zestaw</span></button>
+                </div>
+                <div class="card">
+                    <table id="verb-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="base" data-i18n="colBase">Base Form</th>
+                                <th data-sort="past" data-i18n="colPast">Past Simple</th>
+                                <th data-sort="participle" data-i18n="colParticiple">Past Participle</th>
+                                <th data-sort="polish_gloss" data-i18n="colPolish">Polski</th>
+                                <th data-sort="cefr" data-i18n="colCEFR">CEFR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="verb-table-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Learn (Flashcards) View -->
+            <section id="learn-view" class="view">
+                <h2 data-i18n="learnTitle">Nauka (Fiszki SRS)</h2>
+                <div id="flashcard-container">
+                    <div class="flashcard">
+                        <div class="flashcard-face flashcard-front">
+                            <p class="flashcard-main-word"></p>
+                            <p class="flashcard-polish"></p>
+                        </div>
+                        <div class="flashcard-face flashcard-back">
+                            <p class="flashcard-forms"></p>
+                            <p class="flashcard-example"></p>
+                            <div id="ai-helper-container"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="flashcard-controls">
+                    <button class="btn" style="background-color: var(--error); color: var(--text-on-accent);" data-grade="1" data-i18n="btnAgain">Od nowa</button>
+                    <button class="btn" style="background-color: var(--warning); color: #111;" data-grade="2" data-i18n="btnHard">Trudne</button>
+                    <button class="btn" style="background-color: var(--accent-secondary); color: var(--text-on-accent);" data-grade="3" data-i18n="btnGood">Dobre</button>
+                    <button class="btn" style="background-color: var(--success); color: var(--text-on-accent);" data-grade="4" data-i18n="btnEasy">Łatwe</button>
+                    <button id="ai-helper-btn" class="btn btn-secondary" data-i18n="aiHelp">Pomoc AI</button>
+                </div>
+                <div id="learn-deck-finished" class="card hidden" style="text-align: center;">
+                    <h3 data-i18n="deckFinishedTitle">Świetna robota!</h3>
+                    <p data-i18n="deckFinishedBody">Ukończyłeś/aś tę sesję. Wróć później po kolejne powtórki.</p>
+                </div>
+            </section>
+
+            <!-- Conjugate (Typing) View -->
+            <section id="conjugate-view" class="view">
+                <h2 data-i18n="conjugateTitle">Wpisz formy</h2>
+                <div class="card" style="max-width: 600px; margin: 2rem auto;">
+                    <div id="conjugate-prompt" style="text-align: center; margin-bottom: 2rem;">
+                        <p style="font-size: 1.2rem; color: var(--text-secondary);" data-i18n="conjugatePrompt">Podaj formy Past Simple i Past Participle dla:</p>
+                        <p id="conjugate-base-form" style="font-size: 2.5rem; font-weight: 700;"></p>
+                    </div>
+                    <form id="conjugate-form">
+                        <div class="form-group">
+                            <label for="past-input">Past Simple</label>
+                            <input type="text" id="past-input" class="form-control" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        </div>
+                        <div class="form-group">
+                            <label for="participle-input">Past Participle</label>
+                            <input type="text" id="participle-input" class="form-control" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        </div>
+                        <div id="conjugate-feedback" style="min-height: 2rem; margin-top: 1rem; font-weight: 600;"></div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;" data-i18n="btnCheck">Sprawdź</button>
+                    </form>
+                </div>
+            </section>
+            
+            <!-- Cloze (Gap-fill) View -->
+            <section id="cloze-view" class="view">
+                <h2 data-i18n="clozeTitle">Uzupełnij luki</h2>
+                <div class="card" style="max-width: 800px; margin: 2rem auto;">
+                    <div id="cloze-prompt" style="text-align: center; margin-bottom: 2rem;">
+                        <p style="font-size: 1.2rem; color: var(--text-secondary);" data-i18n="clozePrompt">Wpisz poprawną formę czasownika w nawiasie.</p>
+                        <form id="cloze-form">
+                            <p id="cloze-sentence">
+                                <!-- Sentence will be injected here -->
+                            </p>
+                            <div id="cloze-feedback" style="min-height: 2rem; margin-top: 1.5rem; font-weight: 600;"></div>
+                             <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
+                                <button type="submit" class="btn btn-primary" data-i18n="btnCheck">Sprawdź</button>
+                                <button type="button" id="cloze-regen-btn" class="btn btn-secondary" data-i18n="clozeRegen">Generuj nowe zdanie</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Listen View -->
+            <section id="listen-view" class="view">
+                <h2 data-i18n="listenTitle">Ćwicz ze słuchu</h2>
+                <div class="card" style="max-width: 600px; margin: 2rem auto; text-align: center;">
+                    <p style="font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 1rem;" data-i18n="listenPrompt">Kliknij, aby usłyszeć formę czasownika, a następnie wpisz wszystkie trzy formy.</p>
+                    <button id="listen-btn" class="btn btn-secondary" title="Odtwórz dźwięk">🔊</button>
+                    <form id="listen-form" style="margin-top: 2rem;">
+                        <div class="form-group">
+                            <label for="listen-base-input" data-i18n="colBase">Base Form</label>
+                            <input type="text" id="listen-base-input" class="form-control" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        </div>
+                        <div class="form-group">
+                            <label for="listen-past-input" data-i18n="colPast">Past Simple</label>
+                            <input type="text" id="listen-past-input" class="form-control" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        </div>
+                        <div class="form-group">
+                            <label for="listen-participle-input" data-i18n="colParticiple">Past Participle</label>
+                            <input type="text" id="listen-participle-input" class="form-control" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        </div>
+                        <div id="listen-feedback" style="min-height: 2rem; margin-top: 1rem; font-weight: 600;"></div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;" data-i18n="btnCheck">Sprawdź</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Match View -->
+            <section id="match-view" class="view">
+                <h2 data-i18n="matchTitle">Dopasuj formy</h2>
+                <div class="card">
+                    <p data-i18n="matchPrompt" style="text-align: center; margin-bottom: 2rem;">Połącz formę podstawową (lewa kolumna) z jej formami przeszłymi (prawa kolumna).</p>
+                    <div id="match-container">
+                        <div id="match-col-1" class="match-column"></div>
+                        <div id="match-col-2" class="match-column"></div>
+                    </div>
+                    <div id="match-feedback" style="text-align: center; margin-top: 1.5rem; font-weight: 600; min-height: 2rem;"></div>
+                </div>
+            </section>
+
+            <!-- Sprint View -->
+            <section id="sprint-view" class="view">
+                <div id="sprint-start-screen">
+                    <h2 data-i18n="sprintTitle">Sprint</h2>
+                    <div class="card" style="text-align: center;">
+                        <p data-i18n="sprintDescription" style="margin-bottom: 1.5rem;">Odpowiedz na jak najwięcej pytań w ciągu 60 sekund. Liczy się szybkość i seria poprawnych odpowiedzi!</p>
+                        <button id="start-sprint-btn" class="btn btn-primary" data-i18n="startSprint">Rozpocznij Sprint</button>
+                    </div>
+                </div>
+                <div id="sprint-game-screen" class="hidden">
+                    <div class="card" style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span data-i18n="sprintTimeLeft">Czas:</span>
+                                <span id="sprint-timer">60</span>
+                            </div>
+                            <div>
+                                <span data-i18n="sprintScore">Punkty:</span>
+                                <span id="sprint-score">0</span>
+                            </div>
+                        </div>
+                        <div id="sprint-streak" style="text-align: center; margin-top: 0.5rem;"></div>
+                    </div>
+                    <div id="sprint-question-container" class="card"></div>
+                </div>
+                <div id="sprint-results-screen" class="hidden">
+                     <h2 data-i18n="sprintResultsTitle">Koniec Czasu!</h2>
+                     <div class="card" style="text-align: center;">
+                        <h3 data-i18n="sprintFinalScore">Wynik końcowy</h3>
+                        <p id="sprint-final-score-display" style="font-size: 3rem; font-weight: bold; margin: 1rem 0;"></p>
+                        <p id="sprint-accuracy-display" style="font-size: 1.2rem;"></p>
+                        <button id="restart-sprint-btn" class="btn btn-primary" style="margin-top: 2rem;" data-i18n="restartSprint">Zagraj jeszcze raz</button>
+                     </div>
+                </div>
+            </section>
+
+            <!-- Exam View -->
+            <section id="exam-view" class="view">
+                 <div id="exam-start-screen">
+                    <h2 data-i18n="examTitle">Egzamin</h2>
+                    <div class="card" style="text-align: center;">
+                        <p data-i18n="examDescription" style="margin-bottom: 1.5rem;">Sprawdź swoją wiedzę w teście składającym się z 10 pytań.</p>
+                        <button id="start-exam-btn" class="btn btn-primary" data-i18n="startExam">Rozpocznij Egzamin</button>
+                    </div>
+                </div>
+                <div id="exam-question-screen" class="hidden">
+                    <h3 id="exam-progress">Pytanie 1 / 10</h3>
+                    <div id="exam-question-container" class="card" style="margin-top: 1rem;">
+                        <!-- Exam question will be injected here -->
+                    </div>
+                </div>
+                <div id="exam-results-screen" class="hidden">
+                    <h2 data-i18n="examResultsTitle">Wyniki Egzaminu</h2>
+                    <div class="card">
+                        <h3 id="exam-score" style="text-align: center; font-size: 2rem; margin-bottom: 1.5rem;"></h3>
+                        <ul id="exam-results-list" style="list-style-type: none;"></ul>
+                        <div style="text-align: center; margin-top: 2rem;">
+                            <button id="restart-exam-btn" class="btn btn-primary" data-i18n="restartExam">Spróbuj ponownie</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Custom Lists View -->
+            <section id="custom-lists-view" class="view">
+                <h2 data-i18n="customListsTitle">Listy Własne</h2>
+                <div class="card">
+                    <div id="custom-lists-container"></div>
+                    <div style="margin-top: 1.5rem;">
+                        <input type="text" id="new-list-name-input" class="form-control" data-i18n-placeholder="newListNamePlaceholder" style="display: inline-block; width: auto; margin-right: 1rem;">
+                        <button id="create-new-list-btn" class="btn btn-primary" data-i18n="createNewList">Utwórz nową listę</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Worksheets View -->
+            <section id="worksheets-view" class="view">
+                <h2 data-i18n="worksheetsTitle">Generator Arkuszy</h2>
+                <div id="worksheet-controls" class="card">
+                    <p data-i18n="worksheetDescription" style="margin-bottom: 1.5rem;">Wybierz zestaw czasowników, aby wygenerować arkusz ćwiczeń do wydruku.</p>
+                    <div class="form-group">
+                        <label for="worksheet-source-select" data-i18n="worksheetSourceLabel">Źródło czasowników</label>
+                        <select id="worksheet-source-select" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="worksheetExerciseType">Typ ćwiczenia</label>
+                        <div>
+                            <input type="radio" id="type-3forms" name="exercise-type" value="3forms" checked>
+                            <label for="type-3forms" data-i18n="worksheetType3Forms">Uzupełnij 3 formy</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="type-cloze" name="exercise-type" value="cloze">
+                            <label for="type-cloze" data-i18n="worksheetTypeCloze">Uzupełnij luki w zdaniach (AI)</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <input type="checkbox" id="worksheet-include-key">
+                        <label for="worksheet-include-key" data-i18n="worksheetIncludeKey">Dołącz klucz odpowiedzi</label>
+                    </div>
+                    <button id="generate-worksheet-btn" class="btn btn-primary" data-i18n="generateWorksheet">Generuj i drukuj</button>
+                </div>
+            </section>
+
+            <!-- Ranking View -->
+            <section id="ranking-view" class="view">
+                <h2 data-i18n="rankingTitle">Ranking Sprintu</h2>
+                <div class="card">
+                    <p data-i18n="rankingDescription" style="text-align: center; margin-bottom: 1.5rem;">Top 10 najlepszych wyników w trybie Sprint.</p>
+                    <table id="ranking-table">
+                        <thead>
+                            <tr>
+                                <th class="rank" data-i18n="rankingRank">#</th>
+                                <th data-i18n="rankingUser">Użytkownik</th>
+                                <th class="score" data-i18n="rankingScore">Wynik</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-table-body">
+                            <!-- Scores will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Stats View -->
+            <section id="stats-view" class="view">
+                <h2 data-i18n="statsTitle">Twoje Statystyki</h2>
+                <div class="card">
+                    <div id="stats-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+                        <!-- Stats will be injected here -->
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Worksheet Print Area -->
+            <div id="worksheet-output" class="hidden"></div>
+        </main>
+
+        <footer class="app-footer no-print" style="text-align: center; padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+            <p>Irregular Verbs Trainer &copy; 2025</p>
+        </footer>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" data-i18n="settingsTitle">Ustawienia</h3>
+                <button class="modal-close" data-i18n-title="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="language-select" data-i18n="languageLabel">Język Interfejsu</label>
+                    <select id="language-select" class="form-control">
+                        <option value="pl">Polski</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="theme-select" data-i18n="themeLabel">Motyw</label>
+                    <select id="theme-select" class="form-control">
+                        <option value="light" data-i18n="themeLight">Jasny</option>
+                        <option value="dark" data-i18n="themeDark">Ciemny</option>
+                        <option value="high-contrast" data-i18n="themeHighContrast">Wysoki Kontrast</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <h4 data-i18n="notificationsTitle">Powiadomienia</h4>
+                    <button id="notifications-toggle-btn" class="btn btn-secondary" data-i18n="enableNotifications">Włącz powiadomienia</button>
+                </div>
+                <div class="form-group">
+                    <h4 data-i18n="dataManagementTitle">Zarządzanie Danymi</h4>
+                     <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;" data-i18n="dataWarning">Uwaga: Resetowanie usuwa tylko dane z przeglądarki. Dane w chmurze pozostają nienaruszone.</p>
+                    <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                        <button id="reset-data-btn" class="btn" style="background-color: var(--error); color: var(--text-on-accent);" data-i18n="resetData">Resetuj</button>
+                    </div>
+                </div>
+                 <div class="form-group">
+                    <h4 data-i18n="diagnosticsTitle">Diagnostyka</h4>
+                    <button id="diagnostics-btn" class="btn btn-secondary" data-i18n="showDiagnostics">Pokaż diagnostykę</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Modal -->
+    <div id="onboarding-modal" class="modal">
+        <div class="modal-content">
+             <div class="modal-header">
+                <h3 class="modal-title" data-i18n="welcomeTitle">Witaj w Trenerze!</h3>
+            </div>
+            <div class="modal-body">
+                <p data-i18n="onboardingIntro" style="margin-bottom: 1rem;">Oto krótki przewodnik po najważniejszych funkcjach:</p>
+                <ul style="list-style-position: inside; margin-bottom: 1.5rem;">
+                    <li style="margin-bottom: 0.5rem;"><strong data-i18n="tabExplore">Wzorce</strong>: Przeglądaj, filtruj i wyszukuj wszystkie czasowniki.</li>
+                    <li style="margin-bottom: 0.5rem;"><strong data-i18n="tabLearn">Nauka</strong>: Ucz się z fiszkami, używając metody powtórek interwałowych (SRS).</li>
+                    <li style="margin-bottom: 0.5rem;"><strong data-i18n="tabExam">Egzamin</strong>: Sprawdź swoją wiedzę w krótkich testach.</li>
+                    <li><strong data-i18n="tabCustomLists">Listy Własne</strong>: Twórz własne zestawy czasowników do nauki.</li>
+                </ul>
+                <div style="text-align: right;">
+                    <button id="dismiss-onboarding-btn" class="btn btn-primary" data-i1alue="dismiss">Rozumiem, zaczynajmy!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome/Autopilot Modal -->
+    <div id="welcome-modal" class="modal">
+        <div class="modal-content">
+             <div class="modal-header">
+                <h3 class="modal-title" data-i18n="welcomeBackTitle">Witaj z powrotem!</h3>
+            </div>
+            <div class="modal-body">
+                <p id="welcome-message" style="margin-bottom: 1.5rem;"></p>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <button id="dismiss-welcome-btn" class="btn btn-secondary" data-i18n="dismiss">Później</button>
+                    <button id="start-welcome-session-btn" class="btn btn-primary" data-i18n="startSession">Zaczynajmy!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diagnostics Modal -->
+    <div id="diagnostics-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" data-i18n="diagnosticsTitle">Panel Diagnostyczny</h3>
+                <button class="modal-close" data-i18n-title="close">&times;</button>
+            </div>
+            <div class="modal-body" id="diagnostics-content"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, getDocs, query, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+// Ensure the script runs after the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+
+// 1. DATA: Embedded verbs array and data access utilities.
+const VERBS_DATA = [
+    { id: 1, base: 'be', past: 'was/were', participle: 'been', cefr: 'A1', vowel_pattern_family: 'mixed', patternTag: 'all-different', polish_gloss: 'być', examples: [{en: "I want to be a doctor.", pl: "Chcę być lekarzem."}, {en: "She was happy.", pl: "Ona była szczęśliwa."}, {en: "I have never been to Spain.", pl: "Nigdy nie byłem w Hiszpanii."}] },
+    { id: 2, base: 'have', past: 'had', participle: 'had', cefr: 'A1', vowel_pattern_family: 'a-a-a', patternTag: 'same-2-3', polish_gloss: 'mieć', examples: [{en: "We have a new car.", pl: "Mamy nowy samochód."}, {en: "He had a great time.", pl: "On świetnie się bawił."}, {en: "She has had enough.", pl: "Ona ma już dość."}] },
+    { id: 3, base: 'do', past: 'did', participle: 'done', cefr: 'A1', vowel_pattern_family: 'o-i-o', patternTag: 'all-different', polish_gloss: 'robić', examples: [{en: "What do you do?", pl: "Czym się zajmujesz?"}, {en: "What did you do yesterday?", pl: "Co wczoraj robiłeś?"}, {en: "I have done my homework.", pl: "Odrobiłem pracę domową."}] },
+    { id: 4, base: 'say', past: 'said', participle: 'said', cefr: 'A1', vowel_pattern_family: 'ay-ai-ai', patternTag: 'same-2-3', polish_gloss: 'powiedzieć', examples: [{en: "She said goodbye.", pl: "Powiedziała do widzenia."}] },
+    { id: 5, base: 'go', past: 'went', participle: 'gone', cefr: 'A1', vowel_pattern_family: 'suppletion', patternTag: 'all-different', polish_gloss: 'iść, jechać', examples: [{en: "They have gone to Italy.", pl: "Pojechali do Włoch."}] },
+    { id: 6, base: 'get', past: 'got', participle: 'got', cefr: 'A1', vowel_pattern_family: 'e-o-o', patternTag: 'all-different', polish_gloss: 'dostać', variants: { us: { participle: 'gotten' }}, examples: [{en: "I got a letter.", pl: "Dostałem list."}] },
+    { id: 7, base: 'make', past: 'made', participle: 'made', cefr: 'A1', vowel_pattern_family: 'ake-ade-ade', patternTag: 'same-2-3', polish_gloss: 'robić (tworzyć)', examples: [{en: "He made a cake.", pl: "On zrobił ciasto."}] },
+    { id: 8, base: 'know', past: 'knew', participle: 'known', cefr: 'A1', vowel_pattern_family: 'ow-ew-own', patternTag: 'all-different', polish_gloss: 'wiedzieć, znać', examples: [{en: "I've known him for years.", pl: "Znam go od lat."}] },
+    { id: 9, base: 'think', past: 'thought', participle: 'thought', cefr: 'A1', vowel_pattern_family: 'ink-ought-ought', patternTag: 'same-2-3', polish_gloss: 'myśleć', pitfalls_for_polish: "Uważać na wymowę 'th' oraz 'ough'.", examples: [{en: "I think it's a good idea.", pl: "Myślę, że to dobry pomysł."}] },
+    { id: 10, base: 'see', past: 'saw', participle: 'seen', cefr: 'A1', vowel_pattern_family: 'ee-aw-een', patternTag: 'all-different', polish_gloss: 'widzieć', examples: [{en: "Have you seen this movie?", pl: "Czy widziałeś ten film?"}] },
+    { id: 11, base: 'come', past: 'came', participle: 'come', cefr: 'A1', vowel_pattern_family: 'o-a-o', patternTag: 'all-different', polish_gloss: 'przychodzić', examples: [{en: "She came to the party late.", pl: "Przyszła na imprezę spóźniona."}] },
+    { id: 12, base: 'take', past: 'took', participle: 'taken', cefr: 'A1', vowel_pattern_family: 'ake-ook-aken', patternTag: 'all-different', polish_gloss: 'brać', examples: [{en: "He took my book.", pl: "On wziął moją książkę."}] },
+    { id: 13, base: 'give', past: 'gave', participle: 'given', cefr: 'A2', vowel_pattern_family: 'i-a-i', patternTag: 'all-different', polish_gloss: 'dawać', examples: [{en: "My parents gave me a gift.", pl: "Moi rodzice dali mi prezent."}] },
+    { id: 14, base: 'find', past: 'found', participle: 'found', cefr: 'A2', vowel_pattern_family: 'ind-ound-ound', patternTag: 'same-2-3', polish_gloss: 'znaleźć', examples: [{en: "I can't find my keys.", pl: "Nie mogę znaleźć kluczy."}] },
+    { id: 15, base: 'tell', past: 'told', participle: 'told', cefr: 'A2', vowel_pattern_family: 'ell-old-old', patternTag: 'same-2-3', polish_gloss: 'powiedzieć (komuś)', examples: [{en: "He told me a secret.", pl: "Powiedział mi sekret."}] },
+    { id: 16, base: 'become', past: 'became', participle: 'become', cefr: 'A2', vowel_pattern_family: 'o-a-o', patternTag: 'all-different', polish_gloss: 'stawać się', examples: [{en: "The caterpillar became a butterfly.", pl: "Gąsienica stała się motylem."}] },
+    { id: 17, base: 'show', past: 'showed', participle: 'shown', cefr: 'A2', vowel_pattern_family: 'ow-owed-own', patternTag: 'all-different', polish_gloss: 'pokazywać', examples: [{en: "She showed me her new dress.", pl: "Pokazała mi swoją nową sukienkę."}] },
+    { id: 18, base: 'leave', past: 'left', participle: 'left', cefr: 'A2', vowel_pattern_family: 'eave-eft-eft', patternTag: 'same-2-3', polish_gloss: 'zostawić, wyjeżdżać', examples: [{en: "The train left at 5 PM.", pl: "Pociąg odjechał o 17:00."}] },
+    { id: 19, base: 'feel', past: 'felt', participle: 'felt', cefr: 'A2', vowel_pattern_family: 'eel-elt-elt', patternTag: 'same-2-3', polish_gloss: 'czuć', examples: [{en: "I felt very tired.", pl: "Czułem się bardzo zmęczony."}] },
+    { id: 20, base: 'put', past: 'put', participle: 'put', cefr: 'A2', vowel_pattern_family: 'u-u-u', patternTag: 'same-all', polish_gloss: 'kłaść', examples: [{en: "She put the book on the table.", pl: "Położyła książkę na stole."}] },
+    { id: 21, base: 'bring', past: 'brought', participle: 'brought', cefr: 'B1', vowel_pattern_family: 'ing-ought-ought', patternTag: 'same-2-3', polish_gloss: 'przynosić', examples: [{en: "He brought flowers to the party.", pl: "Przyniósł na imprezę kwiaty."}] },
+    { id: 22, base: 'begin', past: 'began', participle: 'begun', cefr: 'A2', vowel_pattern_family: 'i-a-u', patternTag: 'all-different', polish_gloss: 'zaczynać', examples: [{en: "The film began at 8 PM.", pl: "Film zaczął się o 20:00."}] },
+    { id: 23, base: 'keep', past: 'kept', participle: 'kept', cefr: 'B1', vowel_pattern_family: 'eep-ept-ept', patternTag: 'same-2-3', polish_gloss: 'trzymać, kontynuować', examples: [{en: "She kept her promise.", pl: "Dotrzymała obietnicy."}] },
+    { id: 24, base: 'write', past: 'wrote', participle: 'written', cefr: 'A1', vowel_pattern_family: 'i-o-i', patternTag: 'all-different', polish_gloss: 'pisać', examples: [{en: "I wrote a letter to my friend.", pl: "Napisałem list do przyjaciela."}] },
+    { id: 25, base: 'stand', past: 'stood', participle: 'stood', cefr: 'A2', vowel_pattern_family: 'and-ood-ood', patternTag: 'same-2-3', polish_gloss: 'stać', examples: [{en: "He stood in the corner.", pl: "Stał w rogu."}] },
+    { id: 26, base: 'hear', past: 'heard', participle: 'heard', cefr: 'A2', vowel_pattern_family: 'ear-eard-eard', patternTag: 'same-2-3', polish_gloss: 'słyszeć', examples: [{en: "I heard a strange noise.", pl: "Usłyszałem dziwny hałas."}] },
+    { id: 27, base: 'let', past: 'let', participle: 'let', cefr: 'B1', vowel_pattern_family: 'e-e-e', patternTag: 'same-all', polish_gloss: 'pozwalać', examples: [{en: "My parents let me go out.", pl: "Rodzice pozwolili mi wyjść."}] },
+    { id: 28, base: 'mean', past: 'meant', participle: 'meant', cefr: 'A2', vowel_pattern_family: 'ean-eant-eant', patternTag: 'same-2-3', polish_gloss: 'znaczyć, mieć na myśli', examples: [{en: "What does this word mean?", pl: "Co znaczy to słowo?"}] },
+    { id: 29, base: 'set', past: 'set', participle: 'set', cefr: 'B1', vowel_pattern_family: 'e-e-e', patternTag: 'same-all', polish_gloss: 'ustawiać', examples: [{en: "He set the table for dinner.", pl: "Nakrył do stołu do kolacji."}] },
+    { id: 30, base: 'meet', past: 'met', participle: 'met', cefr: 'A1', vowel_pattern_family: 'eet-et-et', patternTag: 'same-2-3', polish_gloss: 'spotykać', examples: [{en: "We met at the conference.", pl: "Spotkaliśmy się na konferencji."}] },
+    { id: 31, base: 'run', past: 'ran', participle: 'run', cefr: 'A2', vowel_pattern_family: 'u-a-u', patternTag: 'all-different', polish_gloss: 'biec', examples: [{en: "I ran a marathon last year.", pl: "W zeszłym roku przebiegłem maraton."}] },
+    { id: 32, base: 'pay', past: 'paid', participle: 'paid', cefr: 'A2', vowel_pattern_family: 'ay-aid-aid', patternTag: 'same-2-3', polish_gloss: 'płacić', examples: [{en: "I have already paid the bill.", pl: "Już zapłaciłem rachunek."}] },
+    { id: 33, base: 'sit', past: 'sat', participle: 'sat', cefr: 'A2', vowel_pattern_family: 'i-a-a', patternTag: 'same-2-3', polish_gloss: 'siedzieć', examples: [{en: "The cat sat on the mat.", pl: "Kot usiadł na macie."}] },
+    { id: 34, base: 'speak', past: 'spoke', participle: 'spoken', cefr: 'A2', vowel_pattern_family: 'eak-oke-oken', patternTag: 'all-different', polish_gloss: 'mówić', examples: [{en: "He spoke about his travels.", pl: "Mówił o swoich podróżach."}] },
+    { id: 35, base: 'lie', past: 'lay', participle: 'lain', cefr: 'B2', vowel_pattern_family: 'ie-ay-ain', patternTag: 'all-different', polish_gloss: 'leżeć', pitfalls_for_polish: "Mylone z 'lay' (kłaść) oraz 'lie' (kłamać - regularny).", confusables: [36, 101], examples: [{en: "The dog lay on the floor.", pl: "Pies leżał na podłodze."}] },
+    { id: 36, base: 'lay', past: 'laid', participle: 'laid', cefr: 'B1', vowel_pattern_family: 'ay-aid-aid', patternTag: 'same-2-3', polish_gloss: 'kłaść', confusables: [35], examples: [{en: "She laid the baby in the crib.", pl: "Położyła dziecko w łóżeczku."}] },
+    { id: 37, base: 'read', past: 'read', participle: 'read', cefr: 'A1', vowel_pattern_family: 'ead-ead-ead', patternTag: 'same-all', polish_gloss: 'czytać', ipa: {base: "/riːd/", past: "/rɛd/", participle: "/rɛd/"}, pitfalls_for_polish: "Wymowa formy 'past' i 'participle' to /rɛd/, nie /riːd/.", examples: [{en: "I read a book yesterday.", pl: "Wczoraj przeczytałem książkę."}] },
+    { id: 38, base: 'spend', past: 'spent', participle: 'spent', cefr: 'A2', vowel_pattern_family: 'end-ent-ent', patternTag: '-t-ending', polish_gloss: 'spędzać, wydawać', examples: [{en: "I spent all my money.", pl: "Wydałem wszystkie pieniądze."}] },
+    { id: 39, base: 'grow', past: 'grew', participle: 'grown', cefr: 'A2', vowel_pattern_family: 'ow-ew-own', patternTag: 'all-different', polish_gloss: 'rosnąć', examples: [{en: "My plants have grown a lot.", pl: "Moje rośliny bardzo urosły."}] },
+    { id: 40, base: 'win', past: 'won', participle: 'won', cefr: 'A2', vowel_pattern_family: 'i-o-o', patternTag: 'all-different', polish_gloss: 'wygrywać', examples: [{en: "Our team won the match.", pl: "Nasza drużyna wygrała mecz."}] },
+    { id: 41, base: 'teach', past: 'taught', participle: 'taught', cefr: 'A2', vowel_pattern_family: 'each-aught-aught', patternTag: 'same-2-3', polish_gloss: 'uczyć (kogoś)', examples: [{en: "She taught English for 20 years.", pl: "Uczyła angielskiego przez 20 lat."}] },
+    { id: 42, base: 'buy', past: 'bought', participle: 'bought', cefr: 'A1', vowel_pattern_family: 'uy-ought-ought', patternTag: 'same-2-3', polish_gloss: 'kupować', examples: [{en: "I bought a new phone.", pl: "Kupiłem nowy telefon."}] },
+    { id: 43, base: 'send', past: 'sent', participle: 'sent', cefr: 'A2', vowel_pattern_family: 'end-ent-ent', patternTag: '-t-ending', polish_gloss: 'wysyłać', examples: [{en: "He sent me an email.", pl: "Wysłał mi e-mail."}] },
+    { id: 44, base: 'build', past: 'built', participle: 'built', cefr: 'B1', vowel_pattern_family: 'ild-ilt-ilt', patternTag: '-t-ending', polish_gloss: 'budować', examples: [{en: "They built a new house.", pl: "Zbudowali nowy dom."}] },
+    { id: 45, base: 'fall', past: 'fell', participle: 'fallen', cefr: 'B1', vowel_pattern_family: 'all-ell-allen', patternTag: 'all-different', polish_gloss: 'upadać', examples: [{en: "The leaves fell from the tree.", pl: "Liście spadły z drzewa."}] },
+    { id: 46, base: 'cut', past: 'cut', participle: 'cut', cefr: 'A2', vowel_pattern_family: 'u-u-u', patternTag: 'same-all', polish_gloss: 'ciąć', examples: [{en: "He cut his finger.", pl: "Skaleczył się w palec."}] },
+    { id: 47, base: 'sell', past: 'sold', participle: 'sold', cefr: 'B1', vowel_pattern_family: 'ell-old-old', patternTag: 'same-2-3', polish_gloss: 'sprzedawać', examples: [{en: "She sold her car.", pl: "Sprzedała swój samochód."}] },
+    { id: 48, base: 'drive', past: 'drove', participle: 'driven', cefr: 'A2', vowel_pattern_family: 'i-o-i', patternTag: 'all-different', polish_gloss: 'prowadzić (pojazd)', examples: [{en: "I drove to work today.", pl: "Pojechałem dziś do pracy samochodem."}] },
+    { id: 49, base: 'break', past: 'broke', participle: 'broken', cefr: 'A2', vowel_pattern_family: 'eak-oke-oken', patternTag: 'all-different', polish_gloss: 'łamać, psuć', examples: [{en: "He has broken his leg.", pl: "Złamał nogę."}] },
+    { id: 50, base: 'wear', past: 'wore', participle: 'worn', cefr: 'A2', vowel_pattern_family: 'ear-ore-orn', patternTag: 'all-different', polish_gloss: 'nosić (ubranie)', examples: [{en: "She wore a beautiful dress.", pl: "Miała na sobie piękną sukienkę."}] },
+    { id: 51, base: 'drink', past: 'drank', participle: 'drunk', cefr: 'A1', vowel_pattern_family: 'i-a-u', patternTag: 'all-different', polish_gloss: 'pić', examples: [{en: "He drank all the juice.", pl: "Wypił cały sok."}] },
+    { id: 52, base: 'eat', past: 'ate', participle: 'eaten', cefr: 'A1', vowel_pattern_family: 'eat-ate-eaten', patternTag: 'all-different', polish_gloss: 'jeść', examples: [{en: "I haven't eaten breakfast yet.", pl: "Nie jadłem jeszcze śniadania."}] },
+    { id: 53, base: 'sleep', past: 'slept', participle: 'slept', cefr: 'A2', vowel_pattern_family: 'eep-ept-ept', patternTag: 'same-2-3', polish_gloss: 'spać', examples: [{en: "The baby slept for ten hours.", pl: "Dziecko spało dziesięć godzin."}] },
+    { id: 54, base: 'choose', past: 'chose', participle: 'chosen', cefr: 'B1', vowel_pattern_family: 'oo-o-o', patternTag: 'all-different', polish_gloss: 'wybierać', examples: [{en: "You chose the right path.", pl: "Wybrałeś właściwą ścieżkę."}] },
+    { id: 55, base: 'fly', past: 'flew', participle: 'flown', cefr: 'B1', vowel_pattern_family: 'y-ew-own', patternTag: 'all-different', polish_gloss: 'latać', examples: [{en: "A bird flew past the window.", pl: "Ptak przeleciał obok okna."}] },
+    { id: 56, base: 'forget', past: 'forgot', participle: 'forgotten', cefr: 'A2', vowel_pattern_family: 'e-o-o', patternTag: 'all-different', polish_gloss: 'zapominać', examples: [{en: "I forgot to call her.", pl: "Zapomniałem do niej zadzwonić."}] },
+    { id: 57, base: 'forgive', past: 'forgave', participle: 'forgiven', cefr: 'B2', vowel_pattern_family: 'i-a-i', patternTag: 'all-different', polish_gloss: 'wybaczać', examples: [{en: "She has forgiven him.", pl: "Ona mu wybaczyła."}] },
+    { id: 58, base: 'freeze', past: 'froze', participle: 'frozen', cefr: 'B2', vowel_pattern_family: 'ee-o-o', patternTag: 'all-different', polish_gloss: 'zamarzać', examples: [{en: "The lake froze overnight.", pl: "Jezioro zamarzło w nocy."}] },
+    { id: 59, base: 'hide', past: 'hid', participle: 'hidden', cefr: 'B1', vowel_pattern_family: 'i-i-i', patternTag: 'all-different', polish_gloss: 'chować', examples: [{en: "The treasure was hidden.", pl: "Skarb był ukryty."}] },
+    { id: 60, base: 'ride', past: 'rode', participle: 'ridden', cefr: 'A2', vowel_pattern_family: 'i-o-i', patternTag: 'all-different', polish_gloss: 'jeździć (na)', examples: [{en: "I rode a horse for the first time.", pl: "Pierwszy raz jeździłem konno."}] },
+    { id: 61, base: 'ring', past: 'rang', participle: 'rung', cefr: 'B1', vowel_pattern_family: 'i-a-u', patternTag: 'all-different', polish_gloss: 'dzwonić', examples: [{en: "The phone rang.", pl: "Zadzwonił telefon."}] },
+    { id: 62, base: 'rise', past: 'rose', participle: 'risen', cefr: 'B2', vowel_pattern_family: 'i-o-i', patternTag: 'all-different', polish_gloss: 'wzrastać, wschodzić', examples: [{en: "The sun has risen.", pl: "Słońce wzeszło."}] },
+    { id: 63, base: 'shake', past: 'shook', participle: 'shaken', cefr: 'B1', vowel_pattern_family: 'ake-ook-aken', patternTag: 'all-different', polish_gloss: 'trząść', examples: [{en: "He shook my hand.", pl: "Uścisnął mi dłoń."}] },
+    { id: 64, base: 'sing', past: 'sang', participle: 'sung', cefr: 'A2', vowel_pattern_family: 'i-a-u', patternTag: 'all-different', polish_gloss: 'śpiewać', examples: [{en: "She sang a beautiful song.", pl: "Zaśpiewała piękną piosenkę."}] },
+    { id: 65, base: 'swim', past: 'swam', participle: 'swum', cefr: 'A2', vowel_pattern_family: 'i-a-u', patternTag: 'all-different', polish_gloss: 'pływać', examples: [{en: "We swam in the ocean.", pl: "Pływaliśmy w oceanie."}] },
+    { id: 66, base: 'throw', past: 'threw', participle: 'thrown', cefr: 'B1', vowel_pattern_family: 'ow-ew-own', patternTag: 'all-different', polish_gloss: 'rzucać', examples: [{en: "He threw the ball.", pl: "Rzucił piłkę."}] },
+    { id: 67, base: 'wake', past: 'woke', participle: 'woken', cefr: 'B1', vowel_pattern_family: 'ake-oke-oken', patternTag: 'all-different', polish_gloss: 'budzić się', examples: [{en: "I woke up early.", pl: "Obudziłem się wcześnie."}] },
+    { id: 68, base: 'understand', past: 'understood', participle: 'understood', cefr: 'A2', vowel_pattern_family: 'and-ood-ood', patternTag: 'same-2-3', polish_gloss: 'rozumieć', examples: [{en: "I understood the question.", pl: "Zrozumiałem pytanie."}] },
+    { id: 69, base: 'steal', past: 'stole', participle: 'stolen', cefr: 'B1', vowel_pattern_family: 'eal-ole-olen', patternTag: 'all-different', polish_gloss: 'kraść', examples: [{en: "Someone has stolen my wallet.", pl: "Ktoś ukradł mój portfel."}] },
+    { id: 70, base: 'stick', past: 'stuck', participle: 'stuck', cefr: 'B2', vowel_pattern_family: 'ick-uck-uck', patternTag: 'same-2-3', polish_gloss: 'przyklejać, utknąć', examples: [{en: "The key is stuck in the lock.", pl: "Klucz utknął w zamku."}] },
+    { id: 71, base: 'tear', past: 'tore', participle: 'torn', cefr: 'B2', vowel_pattern_family: 'ear-ore-orn', patternTag: 'all-different', polish_gloss: 'drzeć', examples: [{en: "He tore the letter into pieces.", pl: "Podarł list na kawałki."}] },
+    { id: 72, base: 'learn', past: 'learnt', participle: 'learnt', cefr: 'A2', vowel_pattern_family: 'earn-earnt-earnt', patternTag: '-t-ending', polish_gloss: 'uczyć się', variants: { uk: { past: 'learnt', participle: 'learnt' }, us: { past: 'learned', participle: 'learned' } }, examples: [{en: "I learnt a lot today.", pl: "Dużo się dziś nauczyłem."}] },
+    { id: 73, base: 'dream', past: 'dreamt', participle: 'dreamt', cefr: 'B1', vowel_pattern_family: 'eam-eamt-eamt', patternTag: '-t-ending', polish_gloss: 'śnić, marzyć', variants: { uk: { past: 'dreamt', participle: 'dreamt' }, us: { past: 'dreamed', participle: 'dreamed' } }, examples: [{en: "I dreamt about you last night.", pl: "Śniłeś mi się zeszłej nocy."}] },
+    { id: 74, base: 'hang', past: 'hung', participle: 'hung', cefr: 'B1', vowel_pattern_family: 'ang-ung-ung', patternTag: 'all-different', polish_gloss: 'wieszać (przedmiot)', pitfalls_for_polish: "Używać 'hanged' dla egzekucji. 'Hung' dla przedmiotów.", examples: [{en: "She hung the painting on the wall.", pl: "Powiesiła obraz na ścianie."}] },
+    { id: 75, base: 'hit', past: 'hit', participle: 'hit', cefr: 'B1', vowel_pattern_family: 'i-i-i', patternTag: 'same-all', polish_gloss: 'uderzać', examples: [{en: "The car hit a tree.", pl: "Samochód uderzył w drzewo."}] },
+    { id: 76, base: 'hurt', past: 'hurt', participle: 'hurt', cefr: 'A2', vowel_pattern_family: 'u-u-u', patternTag: 'same-all', polish_gloss: 'ranić, boleć', examples: [{en: "My back hurts.", pl: "Bolą mnie plecy."}] },
+    { id: 77, base: 'cost', past: 'cost', participle: 'cost', cefr: 'A2', vowel_pattern_family: 'o-o-o', patternTag: 'same-all', polish_gloss: 'kosztować', examples: [{en: "It cost a lot of money.", pl: "To kosztowało dużo pieniędzy."}] },
+    { id: 78, base: 'shut', past: 'shut', participle: 'shut', cefr: 'B1', vowel_pattern_family: 'u-u-u', patternTag: 'same-all', polish_gloss: 'zamykać', examples: [{en: "Please shut the door.", pl: "Proszę zamknąć drzwi."}] },
+    { id: 79, base: 'fight', past: 'fought', participle: 'fought', cefr: 'B1', vowel_pattern_family: 'ight-ought-ought', patternTag: 'same-2-3', polish_gloss: 'walczyć', examples: [{en: "The soldiers fought bravely.", pl: "Żołnierze walczyli dzielnie."}] },
+    { id: 80, base: 'catch', past: 'caught', participle: 'caught', cefr: 'A2', vowel_pattern_family: 'atch-aught-aught', patternTag: 'same-2-3', polish_gloss: 'łapać', examples: [{en: "The police caught the thief.", pl: "Policja złapała złodzieja."}] },
+    // Add more verbs here to reach ~100
+];
+
+const Data = {
+    getAll: () => VERBS_DATA,
+    getById: (id) => VERBS_DATA.find(v => v.id === id),
+    getPatternFamilies: () => [...new Set(VERBS_DATA.map(v => v.vowel_pattern_family).sort())],
+};
+
+
+// 2. I18N: PL/EN dictionary and translation function t(key).
+const I18N_DICT = {
+    pl: {
+        appTitle: "Trener Czasowników Nieregularnych",
+        settings: "Ustawienia",
+        tabExplore: "Wzorce",
+        tabLearn: "Nauka",
+        tabConjugate: "Koniugacje",
+        tabCloze: "Luki",
+        tabListen: "Słuchanie",
+        tabMatch: "Dopasuj",
+        tabSprint: "Sprint",
+        tabExam: "Egzamin",
+        tabCustomLists: "Listy Własne",
+        tabWorksheets: "Arkusze",
+        tabRanking: "Ranking",
+        tabStats: "Statystyki",
+        exploreTitle: "Przeglądaj Wzorce",
+        searchLabel: "Szukaj",
+        searchPlaceholder: "np. be, was, być...",
+        cefrLabel: "Poziom CEFR",
+        patternLabel: "Wzór",
+        allOption: "Wszystkie",
+        colBase: "Forma podstawowa",
+        colPast: "Past Simple",
+        colParticiple: "Past Participle",
+        colPolish: "Polski",
+        colCEFR: "CEFR",
+        practiceThisSet: "Ćwicz ten zestaw",
+        learnTitle: "Nauka (Fiszki SRS)",
+        btnAgain: "Od nowa",
+        btnHard: "Trudne",
+        btnGood: "Dobre",
+        btnEasy: "Łatwe",
+        aiHelp: "Pomoc AI",
+        aiHelpGenerating: "AI pracuje...",
+        aiHelpError: "Błąd generatora AI",
+        aiRegenerate: "Regeneruj",
+        deckFinishedTitle: "Świetna robota!",
+        deckFinishedBody: "Ukończyłeś/aś tę sesję. Wróć później po kolejne powtórki.",
+        conjugateTitle: "Wpisz formy",
+        conjugatePrompt: "Podaj formy Past Simple i Past Participle dla:",
+        btnCheck: "Sprawdź",
+        clozeTitle: "Uzupełnij luki",
+        clozePrompt: "Wpisz poprawną formę czasownika w nawiasie.",
+        clozeRegen: "Generuj nowe zdanie (AI)",
+        listenTitle: "Ćwicz ze słuchu",
+        listenPrompt: "Kliknij, aby usłyszeć formę czasownika, a następnie wpisz wszystkie trzy formy.",
+        matchTitle: "Dopasuj formy",
+        matchPrompt: "Połącz formę podstawową (lewa kolumna) z jej formami przeszłymi (prawa kolumna).",
+        sprintTitle: "Sprint",
+        sprintDescription: "Odpowiedz na jak najwięcej pytań w ciągu 60 sekund. Liczy się szybkość i seria poprawnych odpowiedzi!",
+        startSprint: "Rozpocznij Sprint",
+        sprintTimeLeft: "Czas",
+        sprintScore: "Punkty",
+        sprintResultsTitle: "Koniec Czasu!",
+        sprintFinalScore: "Wynik końcowy",
+        restartSprint: "Zagraj jeszcze raz",
+        examTitle: "Egzamin",
+        examDescription: "Sprawdź swoją wiedzę w teście składającym się z 10 pytań.",
+        startExam: "Rozpocznij Egzamin",
+        examResultsTitle: "Wyniki Egzaminu",
+        restartExam: "Spróbuj ponownie",
+        yourScore: "Twój wynik",
+        correctAnswer: "Poprawna odpowiedź",
+        worksheetsTitle: "Generator Arkuszy",
+        worksheetDescription: "Wybierz zestaw czasowników, aby wygenerować arkusz ćwiczeń do wydruku.",
+        worksheetSourceLabel: "Źródło czasowników",
+        worksheetExerciseType: "Typ ćwiczenia",
+        worksheetType3Forms: "Uzupełnij 3 formy",
+        worksheetTypeCloze: "Uzupełnij luki w zdaniach (AI)",
+        worksheetIncludeKey: "Dołącz klucz odpowiedzi",
+        generateWorksheet: "Generuj i drukuj",
+        rankingTitle: "Ranking Sprintu",
+        rankingDescription: "Top 10 najlepszych wyników w trybie Sprint.",
+        rankingRank: "#",
+        rankingUser: "Użytkownik",
+        rankingScore: "Wynik",
+        statsTitle: "Twoje Statystyki",
+        statsMastered: "Opanowane czasowniki",
+        statsSprintBest: "Najlepszy wynik w Sprincie",
+        statsSprintAccuracy: "Średnia dokładność (Sprint)",
+        customListsTitle: "Listy Własne",
+        newListNamePlaceholder: "Nazwa nowej listy...",
+        createNewList: "Utwórz nową listę",
+        settingsTitle: "Ustawienia",
+        languageLabel: "Język Interfejsu",
+        themeLabel: "Motyw",
+        themeLight: "Jasny",
+        themeDark: "Ciemny",
+        themeHighContrast: "Wysoki Kontrast",
+        notificationsTitle: "Powiadomienia",
+        enableNotifications: "Włącz codzienne przypomnienia",
+        disableNotifications: "Wyłącz codzienne przypomnienia",
+        notificationsSuccess: "Powiadomienia włączone!",
+        notificationsDenied: "Odmówiono zgody na powiadomienia.",
+        dataManagementTitle: "Zarządzanie Danymi",
+        dataWarning: "Uwaga: Resetowanie usuwa tylko dane z przeglądarki. Dane w chmurze pozostają nienaruszone.",
+        resetData: "Resetuj",
+        diagnosticsTitle: "Diagnostyka",
+        showDiagnostics: "Pokaż diagnostykę",
+        close: "Zamknij",
+        welcomeTitle: "Witaj w Trenerze!",
+        onboardingIntro: "Oto krótki przewodnik po najważniejszych funkcjach:",
+        dismiss: "Później",
+        customListFilterLabel: "Lista Własna",
+        loading: "Ładowanie...",
+        authStatus: "Zalogowano jako",
+        authStatusAnon: "Tryb gościa",
+        welcomeBackTitle: "Witaj z powrotem!",
+        welcomeMessage: "Masz {0} czasowników do powtórki. Chcesz zacząć teraz?",
+        welcomeMessagePro: "Dziś czeka na Ciebie {0} powtórek i {1} nowych czasowników. Zaczynamy?",
+        startSession: "Zaczynajmy!",
+    },
+    en: {
+        appTitle: "Irregular Verbs Trainer",
+        settings: "Settings",
+        tabExplore: "Explore",
+        tabLearn: "Learn",
+        tabConjugate: "Conjugate",
+        tabCloze: "Cloze",
+        tabListen: "Listen",
+        tabMatch: "Match",
+        tabSprint: "Sprint",
+        tabExam: "Exam",
+        tabCustomLists: "Custom Lists",
+        tabWorksheets: "Worksheets",
+        tabRanking: "Ranking",
+        tabStats: "Statistics",
+        exploreTitle: "Explore Patterns",
+        searchLabel: "Search",
+        searchPlaceholder: "e.g. be, was, być...",
+        cefrLabel: "CEFR Level",
+        patternLabel: "Pattern",
+        allOption: "All",
+        colBase: "Base Form",
+        colPast: "Past Simple",
+        colParticiple: "Past Participle",
+        colPolish: "Polish",
+        colCEFR: "CEFR",
+        practiceThisSet: "Practice this set",
+        learnTitle: "Learn (SRS Flashcards)",
+        btnAgain: "Again",
+        btnHard: "Hard",
+        btnGood: "Good",
+        btnEasy: "Easy",
+        aiHelp: "AI Helper",
+        aiHelpGenerating: "AI is working...",
+        aiHelpError: "AI generator error",
+        aiRegenerate: "Regenerate",
+        deckFinishedTitle: "Great job!",
+        deckFinishedBody: "You've completed this session. Come back later for more reviews.",
+        conjugateTitle: "Type the forms",
+        conjugatePrompt: "Provide the Past Simple and Past Participle forms for:",
+        btnCheck: "Check",
+        clozeTitle: "Fill in the gaps",
+        clozePrompt: "Type the correct form of the verb in parentheses.",
+        clozeRegen: "Generate new sentence (AI)",
+        listenTitle: "Practice by ear",
+        listenPrompt: "Click to hear a verb form, then type all three forms.",
+        matchTitle: "Match the forms",
+        matchPrompt: "Connect the base form (left column) with its past forms (right column).",
+        sprintTitle: "Sprint",
+        sprintDescription: "Answer as many questions as you can in 60 seconds. Speed and streaks matter!",
+        startSprint: "Start Sprint",
+        sprintTimeLeft: "Time",
+        sprintScore: "Score",
+        sprintResultsTitle: "Time's Up!",
+        sprintFinalScore: "Final Score",
+        restartSprint: "Play Again",
+        examTitle: "Exam",
+        examDescription: "Test your knowledge with a 10-question quiz.",
+        startExam: "Start Exam",
+        examResultsTitle: "Exam Results",
+        restartExam: "Try Again",
+        yourScore: "Your Score",
+        correctAnswer: "Correct answer",
+        worksheetsTitle: "Worksheet Generator",
+        worksheetDescription: "Select a set of verbs to generate a printable worksheet.",
+        worksheetSourceLabel: "Verb source",
+        worksheetExerciseType: "Exercise Type",
+        worksheetType3Forms: "Provide all 3 forms",
+        worksheetTypeCloze: "Fill-in-the-blanks (sentences, AI)",
+        worksheetIncludeKey: "Include answer key",
+        generateWorksheet: "Generate & Print",
+        rankingTitle: "Sprint Ranking",
+        rankingDescription: "Top 10 high scores in Sprint mode.",
+        rankingRank: "#",
+        rankingUser: "User",
+        rankingScore: "Score",
+        statsTitle: "Your Statistics",
+        statsMastered: "Mastered Verbs",
+        statsSprintBest: "Sprint High Score",
+        statsSprintAccuracy: "Average Accuracy (Sprint)",
+        customListsTitle: "Custom Lists",
+        newListNamePlaceholder: "New list name...",
+        createNewList: "Create new list",
+        settingsTitle: "Settings",
+        languageLabel: "Interface Language",
+        themeLabel: "Theme",
+        themeLight: "Light",
+        themeDark: "Dark",
+        themeHighContrast: "High Contrast",
+        notificationsTitle: "Notifications",
+        enableNotifications: "Enable daily reminders",
+        disableNotifications: "Disable daily reminders",
+        notificationsSuccess: "Notifications enabled!",
+        notificationsDenied: "Notification permission denied.",
+        dataManagementTitle: "Data Management",
+        dataWarning: "Note: Reset only clears browser data. Your cloud data remains safe.",
+        resetData: "Reset",
+        diagnosticsTitle: "Diagnostics",
+        showDiagnostics: "Show Diagnostics",
+        close: "Close",
+        welcomeTitle: "Welcome to the Trainer!",
+        onboardingIntro: "Here's a quick tour of the main features:",
+        dismiss: "Later",
+        customListFilterLabel: "Custom List",
+        loading: "Loading...",
+        authStatus: "Signed in as",
+        authStatusAnon: "Guest Mode",
+        welcomeBackTitle: "Welcome back!",
+        welcomeMessage: "You have {0} verbs ready for review. Want to start now?",
+        welcomeMessagePro: "Today you have {0} reviews and {1} new verbs. Let's start?",
+        startSession: "Let's go!",
+    }
+};
+
+const I18n = {
+    currentLang: 'pl',
+    t: (key, ...args) => {
+        let translation = I18N_DICT[I18n.currentLang]?.[key] || key;
+        args.forEach((arg, index) => {
+            translation = translation.replace(`{${index}}`, arg);
+        });
+        return translation;
+    },
+    setLang: (lang) => {
+        if (I18N_DICT[lang]) {
+            I18n.currentLang = lang;
+            document.documentElement.lang = lang;
+            UI.translateAll();
+        }
+    }
+};
+
+
+// 3. UTILS: Core helper functions (e.g., DOM selectors, Levenshtein, minimal date utilities).
+const Utils = {
+    $: (selector) => document.querySelector(selector),
+    $$: (selector) => document.querySelectorAll(selector),
+    debounce: (func, delay) => {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    },
+    normalize: (str) => {
+        if (typeof str !== 'string') return '';
+        return str.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    },
+    levenshtein: (a, b) => {
+        const an = a.length, bn = b.length;
+        if (an === 0) return bn;
+        if (bn === 0) return an;
+        const matrix = Array(an + 1).fill(0).map(() => Array(bn + 1).fill(0));
+        for (let i = 0; i <= an; i++) matrix[i][0] = i;
+        for (let j = 0; j <= bn; j++) matrix[0][j] = j;
+        for (let i = 1; i <= an; i++) {
+            for (let j = 1; j <= bn; j++) {
+                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j] + 1,      // Deletion
+                    matrix[i][j - 1] + 1,      // Insertion
+                    matrix[i - 1][j - 1] + cost // Substitution
+                );
+            }
+        }
+        return matrix[an][bn];
+    },
+    isTypo: (str1, str2, threshold = 1) => {
+        return Utils.levenshtein(Utils.normalize(str1), Utils.normalize(str2)) <= threshold;
+    },
+    shuffleArray: (array) => {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    },
+    base64ToArrayBuffer: (base64) => {
+        const binaryString = window.atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    },
+    pcmToWav: (pcmData, sampleRate) => {
+        const header = new ArrayBuffer(44);
+        const view = new DataView(header);
+        const numChannels = 1;
+        const bitsPerSample = 16;
+        const blockAlign = numChannels * bitsPerSample / 8;
+        const byteRate = sampleRate * blockAlign;
+        const dataSize = pcmData.length * pcmData.BYTES_PER_ELEMENT;
+
+        // RIFF chunk descriptor
+        view.setUint32(0, 0x52494646, false); // "RIFF"
+        view.setUint32(4, 36 + dataSize, true);
+        view.setUint32(8, 0x57415645, false); // "WAVE"
+        // fmt chunk
+        view.setUint32(12, 0x666d7420, false); // "fmt "
+        view.setUint32(16, 16, true); // Sub-chunk size
+        view.setUint16(20, 1, true); // Audio format (1 for PCM)
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, byteRate, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitsPerSample, true);
+        // data chunk
+        view.setUint32(36, 0x64617461, false); // "data"
+        view.setUint32(40, dataSize, true);
+
+        const wavBlob = new Blob([view, pcmData], { type: 'audio/wav' });
+        return wavBlob;
+    }
+};
+
+
+// 4. STORAGE: Firestore-backed storage module.
+const Storage = {
+    db: null,
+    userId: null,
+    userDocRef: null,
+    assetsCollectionRef: null,
+    localData: {}, // Local cache of the Firestore document
+    unsubscribe: null, // To detach the Firestore listener
+
+    init: (db, userId, onUpdate) => {
+        Storage.db = db;
+        Storage.userId = userId;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        Storage.userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
+        Storage.assetsCollectionRef = collection(db, `artifacts/${appId}/public/data/verb_assets`);
+        console.log(`Firestore document path: artifacts/${appId}/users/${userId}`);
+        
+        return new Promise((resolve, reject) => {
+            if (Storage.unsubscribe) {
+                Storage.unsubscribe();
+            }
+            Storage.unsubscribe = onSnapshot(Storage.userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    Storage.localData = docSnap.data();
+                } else {
+                    console.log("No user document found in Firestore, initializing with default structure.");
+                    Storage.localData = {
+                        srs_data: {},
+                        analytics: { sprintStats: { highScore: 0, totalCorrect: 0, totalAttempted: 0 } },
+                        custom_lists: {},
+                        settings: { theme: 'light', lang: 'pl', notifications: false }
+                    };
+                }
+                onUpdate(Storage.localData); // Call the update callback
+                resolve(Storage.localData);
+            }, (error) => {
+                console.error("Error with Firestore snapshot listener:", error);
+                reject(error);
+            });
+        });
+    },
+
+    get: (key, defaultValue = null) => {
+        return Storage.localData[key] ?? defaultValue;
+    },
+
+    set: async (key, value) => {
+        if (!Storage.userDocRef) {
+            console.error("Firestore not initialized, cannot set data.");
+            return;
+        }
+        Storage.localData[key] = value;
+        try {
+            await setDoc(Storage.userDocRef, { [key]: value }, { merge: true });
+            console.log(`Data for key '${key}' saved to Firestore.`);
+        } catch (e) {
+            console.error(`Error setting item ${key} in Firestore`, e);
+        }
+    },
+    
+    getAsset: async (verbId) => {
+        try {
+            const assetDocRef = doc(Storage.assetsCollectionRef, verbId.toString());
+            const docSnap = await getDoc(assetDocRef);
+            return docSnap.exists() ? docSnap.data() : null;
+        } catch (e) {
+            console.error("Error getting asset:", e);
+            return null;
+        }
+    },
+
+    saveAsset: async (verbId, assetData) => {
+         try {
+            const assetDocRef = doc(Storage.assetsCollectionRef, verbId.toString());
+            await setDoc(assetDocRef, assetData, { merge: true });
+            console.log(`Asset for verb ${verbId} saved.`);
+        } catch (e) {
+            console.error("Error saving asset:", e);
+        }
+    },
+
+    clearLocal: () => {
+        if (Storage.unsubscribe) {
+            Storage.unsubscribe();
+            Storage.unsubscribe = null;
+        }
+        Storage.localData = {};
+        Storage.db = null;
+        Storage.userId = null;
+        Storage.userDocRef = null;
+    }
+};
+
+
+// 5. SRS: SM-2-lite engine (scheduleNext, getDue).
+const SRS = {
+    // grade: 1-Again, 2-Hard, 3-Good, 4-Easy
+    scheduleNext: (item, grade) => {
+        item = item || { interval: 0, easeFactor: 2.5, repetitions: 0 };
+        
+        if (grade < 3) { // Again or Hard
+            item.repetitions = 0;
+            item.interval = 1;
+        } else { // Good or Easy
+            item.repetitions = (item.repetitions || 0) + 1;
+            if (item.repetitions === 1) {
+                item.interval = 1;
+            } else if (item.repetitions === 2) {
+                item.interval = 6;
+            } else {
+                item.interval = Math.ceil(item.interval * item.easeFactor);
+            }
+        }
+        
+        item.easeFactor = Math.max(1.3, item.easeFactor + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02)));
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        item.dueDate = today.setDate(today.getDate() + item.interval);
+        
+        return item;
+    },
+    getDue: (srsData) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const due = [];
+        if (!srsData) return { due: [], new: [] };
+        
+        const allIds = Data.getAll().map(v => v.id);
+        // Filter out any non-numeric keys that might have crept in.
+        const studiedIds = Object.keys(srsData)
+            .map(id => parseInt(id))
+            .filter(id => !isNaN(id));
+
+        for (const id of studiedIds) {
+            // Add a check to ensure the item exists and has a dueDate property.
+            if (srsData[id] && srsData[id].dueDate && new Date(srsData[id].dueDate) <= today) { 
+                due.push(id);
+            }
+        }
+        
+        const newIds = allIds.filter(id => !studiedIds.includes(id));
+
+        return { due, new: newIds };
+    }
+};
+
+
+// 6. SPEECH_SERVICE: TTS wrapper (synthSpeak) and voice management. Renamed from Audio to avoid conflict.
+const SpeechService = {
+    synth: window.speechSynthesis,
+    voices: [],
+    init: () => {
+        if (!SpeechService.synth) {
+            console.warn('Web Speech API (TTS) not supported.');
+            return;
+        }
+        SpeechService.loadVoices();
+        if (SpeechService.synth.onvoiceschanged !== undefined) {
+            SpeechService.synth.onvoiceschanged = SpeechService.loadVoices;
+        }
+    },
+    loadVoices: () => {
+        SpeechService.voices = SpeechService.synth.getVoices();
+    },
+    speak: (text, lang = 'en-US') => {
+        if (!SpeechService.synth || !text) return;
+        if (SpeechService.synth.speaking) {
+            SpeechService.synth.cancel();
+        }
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+        // Simple voice selection logic
+        const voice = SpeechService.voices.find(v => v.lang.startsWith(lang) && v.name.includes('Google')) || SpeechService.voices.find(v => v.lang.startsWith(lang));
+        if (voice) utterance.voice = voice;
+        SpeechService.synth.speak(utterance);
+    }
+};
+
+
+// 7. ROUTER: Hash-based router for managing views.
+const Router = {
+    init: () => {
+        window.addEventListener('hashchange', Router.handleRouteChange);
+        Router.handleRouteChange();
+    },
+    handleRouteChange: () => {
+        const hash = window.location.hash.replace('#', '') || 'explore';
+        UI.showView(hash);
+    },
+    navigate: (viewId) => {
+        window.location.hash = viewId;
+    }
+};
+
+
+// 8. NOTIFICATIONS: Logic for Notification API and in-app fallbacks.
+const Notifications = {
+    init: () => {
+        Notifications.updateButtonUI();
+    },
+    requestPermission: async () => {
+        if (!('Notification' in window)) {
+            alert('This browser does not support desktop notification');
+            return;
+        }
+        const permission = await Notification.requestPermission();
+        const settings = Storage.get('settings', {});
+        if (permission === 'granted') {
+            new Notification(I18n.t('notificationsSuccess'));
+            settings.notifications = true;
+        } else {
+            alert(I18n.t('notificationsDenied'));
+            settings.notifications = false;
+        }
+        await Storage.set('settings', settings);
+        // UI update will be handled by the onSnapshot listener
+    },
+    updateButtonUI: () => {
+        const btn = Utils.$('#notifications-toggle-btn');
+        if (!btn) return;
+
+        const settings = Storage.get('settings', {});
+        const hasPermission = Notification.permission === 'granted' && settings.notifications;
+        
+        if (hasPermission) {
+            btn.textContent = I18n.t('disableNotifications');
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-secondary');
+        } else {
+            btn.textContent = I18n.t('enableNotifications');
+            btn.classList.add('btn-secondary');
+            btn.classList.remove('btn-primary');
+        }
+    }
+};
+
+
+// 9. UI: All component renderers, DOM manipulation functions, and theme management.
+const UI = {
+    init: () => {
+        const localSettings = localStorage.getItem('irv_trainer_local_settings');
+        const settings = localSettings ? JSON.parse(localSettings) : { theme: 'light', lang: 'pl' };
+        
+        UI.setTheme(settings.theme);
+        I18n.setLang(settings.lang);
+
+        if (!localStorage.getItem('irv_trainer_onboarding_complete')) {
+            UI.showModal('onboarding-modal');
+        }
+    },
+    applyUserPreferences: (settings) => {
+        settings = settings || { theme: 'light', lang: 'pl' };
+        UI.setTheme(settings.theme);
+        Utils.$('#theme-select').value = settings.theme;
+        
+        I18n.setLang(settings.lang);
+        Utils.$('#language-select').value = settings.lang;
+    },
+    translateAll: () => {
+        Utils.$$('[data-i18n]').forEach(el => {
+            el.textContent = I18n.t(el.dataset.i18n);
+        });
+        Utils.$$('[data-i18n-title]').forEach(el => {
+            el.title = I18n.t(el.dataset.i18nTitle);
+        });
+        Utils.$$('[data-i18n-placeholder]').forEach(el => {
+            el.placeholder = I18n.t(el.dataset.i18nPlaceholder);
+        });
+    },
+    setTheme: (themeName) => {
+        document.body.className = `${themeName}-theme`;
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+            const color = getComputedStyle(document.body).getPropertyValue('--bg-primary').trim();
+            metaThemeColor.setAttribute('content', color);
+        }
+    },
+    showView: (viewId) => {
+        if (!App.state.isAuthReady) return;
+        App.state.currentView = viewId;
+        Utils.$$('.view').forEach(v => v.classList.remove('active'));
+        const viewEl = Utils.$(`#${viewId}-view`);
+        if (viewEl) {
+            viewEl.classList.add('active');
+        }
+        
+        Utils.$$('.nav-tab').forEach(t => t.classList.remove('active'));
+        Utils.$(`.nav-tab[data-view="${viewId}"]`)?.classList.add('active');
+
+        // Trigger view-specific load functions
+        UI.rerenderCurrentView();
+    },
+    rerenderCurrentView: () => {
+        const viewId = App.state.currentView;
+        // Don't re-render active sessions
+        if (SessionManager.isActive && ['learn', 'conjugate', 'cloze'].includes(viewId)) {
+            console.log("Session active, preventing full view re-render.");
+            return;
+        }
+        switch(viewId) {
+            case 'explore': Explore.renderTable(); break;
+            case 'learn': Learn.startSession(); break;
+            case 'conjugate': Conjugate.loadNextVerb(); break;
+            case 'cloze': Cloze.loadNextQuestion(); break;
+            case 'listen': Listen.loadNextVerb(); break;
+            case 'match': Match.start(); break;
+            case 'sprint': Sprint.showStartScreen(); break;
+            case 'exam': Exam.showStartScreen(); break;
+            case 'custom-lists': CustomLists.renderLists(); break;
+            case 'worksheets': Worksheets.init(); break;
+            case 'ranking': Ranking.render(); break;
+            case 'stats': Stats.render(); break;
+        }
+    },
+    showModal: (modalId) => {
+        Utils.$(`#${modalId}`)?.classList.add('is-open');
+    },
+    hideModal: (modalId) => {
+        Utils.$(`#${modalId}`)?.classList.remove('is-open');
+    },
+    showLoading: (message) => {
+        const overlay = Utils.$('#loading-overlay');
+        overlay.querySelector('span').textContent = message;
+        overlay.style.display = 'flex';
+    },
+    hideLoading: () => {
+        Utils.$('#loading-overlay').style.display = 'none';
+    }
+};
+
+// 10. CUSTOM_LISTS: Logic for creating, managing, and saving user-defined verb lists.
+const CustomLists = {
+    init: () => {
+        // Data is now loaded via Storage module from Firestore
+    },
+    createList: async (name) => {
+        if (!name) return false;
+        const lists = Storage.get('custom_lists', {});
+        if (lists[name]) return false;
+        
+        lists[name] = { id: name, verbs: [] };
+        await Storage.set('custom_lists', lists);
+        // UI will update via onSnapshot
+        return true;
+    },
+    deleteList: async (name) => {
+        const lists = Storage.get('custom_lists', {});
+        delete lists[name];
+        await Storage.set('custom_lists', lists);
+        // UI will update via onSnapshot
+    },
+    addVerbToList: async (listName, verbId) => {
+        const lists = Storage.get('custom_lists', {});
+        const list = lists[listName];
+        if (list && !list.verbs.includes(verbId)) {
+            list.verbs.push(verbId);
+            await Storage.set('custom_lists', lists);
+        }
+    },
+    removeVerbFromList: async (listName, verbId) => {
+        const lists = Storage.get('custom_lists', {});
+        const list = lists[listName];
+        if (list) {
+            list.verbs = list.verbs.filter(id => id !== verbId);
+            await Storage.set('custom_lists', lists);
+        }
+    },
+    renderLists: () => {
+        const lists = Storage.get('custom_lists', {});
+        const container = Utils.$('#custom-lists-container');
+        container.innerHTML = '';
+        if (Object.keys(lists).length === 0) {
+            container.innerHTML = `<p>${I18n.t('noCustomLists') || 'Nie masz jeszcze żadnych list.'}</p>`;
+            return;
+        }
+        for (const listName in lists) {
+            const list = lists[listName];
+            const listEl = document.createElement('div');
+            listEl.className = 'card';
+            listEl.style.marginBottom = '1rem';
+            listEl.innerHTML = `
+                <h3>${listName} (${list.verbs.length} czasowników)</h3>
+                <button class="btn btn-secondary delete-list-btn" data-list-name="${listName}">Usuń</button>
+            `;
+            container.appendChild(listEl);
+        }
+    },
+    populateFilterDropdown: () => {
+        const lists = Storage.get('custom_lists', {});
+        const select = Utils.$('#custom-list-filter');
+        select.innerHTML = `<option value="all">${I18n.t('allOption')}</option>`;
+        for (const listName in lists) {
+            const option = document.createElement('option');
+            option.value = listName;
+            option.textContent = listName;
+            select.appendChild(option);
+        }
+    }
+};
+
+
+// 11. WORKSHEETS_EXAM_GENERATOR: Functions for generating printable content and exam questions.
+const Worksheets = {
+    init: () => {
+        Worksheets.populateSourceSelect();
+    },
+    populateSourceSelect: () => {
+        const select = Utils.$('#worksheet-source-select');
+        select.innerHTML = `
+            <option value="all">${I18n.t('allOption')}</option>
+            <optgroup label="CEFR">
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="B1">B1</option>
+                <option value="B2">B2</option>
+            </optgroup>
+        `;
+        const customLists = Storage.get('custom_lists', {});
+        if (Object.keys(customLists).length > 0) {
+            const group = document.createElement('optgroup');
+            group.label = I18n.t('tabCustomLists');
+            for (const listName in customLists) {
+                const option = document.createElement('option');
+                option.value = `custom_${listName}`;
+                option.textContent = listName;
+                group.appendChild(option);
+            }
+            select.appendChild(group);
+        }
+    },
+    generate: async () => {
+        const btn = Utils.$('#generate-worksheet-btn');
+        btn.disabled = true;
+        btn.textContent = 'Generowanie...';
+
+        const source = Utils.$('#worksheet-source-select').value;
+        const exerciseType = Utils.$('input[name="exercise-type"]:checked').value;
+        const includeKey = Utils.$('#worksheet-include-key').checked;
+
+        let verbsToUse = [];
+
+        if (source === 'all') {
+            verbsToUse = Data.getAll();
+        } else if (source.startsWith('custom_')) {
+            const listName = source.replace('custom_', '');
+            const verbIds = Storage.get('custom_lists', {})[listName]?.verbs || [];
+            verbsToUse = verbIds.map(id => Data.getById(id));
+        } else { // CEFR level
+            verbsToUse = Data.getAll().filter(v => v.cefr === source);
+        }
+
+        if (verbsToUse.length === 0) {
+            alert("Brak czasowników do wygenerowania arkusza.");
+            btn.disabled = false;
+            btn.textContent = I18n.t('generateWorksheet');
+            return;
+        }
+
+        const htmlContent = await Worksheets.buildHtml(verbsToUse, exerciseType, includeKey);
+        
+        const newWindow = window.open('', '_blank');
+        newWindow.document.write(htmlContent);
+        newWindow.document.close();
+        
+        setTimeout(() => {
+            newWindow.print();
+            newWindow.close();
+        }, 250);
+
+        btn.disabled = false;
+        btn.textContent = I18n.t('generateWorksheet');
+    },
+    buildHtml: async (verbs, type, includeKey) => {
+        const printStyles = `
+            body { font-family: sans-serif; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .page-break { page-break-after: always; }
+            .exercise-item { margin-bottom: 1rem; }
+        `;
+
+        let exercisesHtml = '';
+        let keyHtml = '';
+
+        if (type === '3forms') {
+            exercisesHtml = `
+                <table>
+                    <thead><tr><th>Base Form</th><th>Past Simple</th><th>Past Participle</th></tr></thead>
+                    <tbody>
+                        ${verbs.map(v => `<tr><td>${v.base}</td><td>....................</td><td>....................</td></tr>`).join('')}
+                    </tbody>
+                </table>`;
+            keyHtml = `
+                <table>
+                    <thead><tr><th>Base Form</th><th>Past Simple</th><th>Past Participle</th></tr></thead>
+                    <tbody>
+                        ${verbs.map(v => `<tr><td>${v.base}</td><td>${v.past}</td><td>${v.participle}</td></tr>`).join('')}
+                    </tbody>
+                </table>`;
+        } else { // cloze with Gemini
+            const verbsWithExamples = verbs.filter(v => v.examples && v.examples.length > 0);
+            let generatedSentences = [];
+            for (const verb of verbsWithExamples) {
+                const data = await Gemini.generateClozeSentence(verb);
+                generatedSentences.push(data);
+            }
+
+            exercisesHtml = generatedSentences.map((data, i) => {
+                const verb = verbsWithExamples[i];
+                const sentence = data.sentence || `Could not generate sentence for ${verb.base}.`;
+                return `<div class="exercise-item">${i + 1}. ${sentence.replace('___', '_______________')} (<b>${verb.base}</b>)</div>`;
+            }).join('');
+
+            keyHtml = generatedSentences.map((data, i) => {
+                const verb = verbsWithExamples[i];
+                const sentence = data.sentence || `Could not generate sentence for ${verb.base}.`;
+                const answer = data.answer || 'N/A';
+                return `<div class="exercise-item">${i + 1}. ${sentence.replace('___', `<b>${answer}</b>`)}</div>`;
+            }).join('');
+        }
+
+        return `
+            <html>
+                <head><title>Irregular Verbs Worksheet</title><style>${printStyles}</style></head>
+                <body>
+                    <h1>Irregular Verbs Worksheet</h1>
+                    <h3>Name: ............................................</h3>
+                    <hr>
+                    ${exercisesHtml}
+                    ${includeKey ? `<div class="page-break"></div><h2>Answer Key</h2>${keyHtml}` : ''}
+                </body>
+            </html>
+        `;
+    }
+};
+
+
+// 12. ANALYTICS: Functions for tracking and rendering user statistics.
+const Analytics = {
+    init: () => {
+        // Data is now loaded via Storage module from Firestore
+    },
+    trackSprintResult: async (score, correct, attempted) => {
+        const analytics = Storage.get('analytics', { sprintStats: { highScore: 0, totalCorrect: 0, totalAttempted: 0 } });
+        const sprintStats = analytics.sprintStats;
+
+        if (score > sprintStats.highScore) {
+            sprintStats.highScore = score;
+        }
+        sprintStats.totalCorrect += correct;
+        sprintStats.totalAttempted += attempted;
+        
+        await Storage.set('analytics', analytics);
+        await Ranking.saveScore(score);
+    },
+};
+
+
+// 13. DIAGNOSTICS: Functions for the self-check panel.
+const Diagnostics = {
+    run: () => {
+        const contentEl = Utils.$('#diagnostics-content');
+        let html = '<ul>';
+        
+        // Firestore
+        html += `<li>ℹ️ Firebase App ID: ${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}</li>`;
+        html += `<li>ℹ️ Firebase User ID: ${App.state.userId || 'Not signed in'}</li>`;
+        
+        // SpeechService
+        if ('speechSynthesis' in window) {
+            html += '<li>✅ Web Speech API (TTS): Obsługiwane</li>';
+        } else {
+            html += '<li>❌ Web Speech API (TTS): Nieobsługiwane</li>';
+        }
+        
+        // Notifications
+        if ('Notification' in window) {
+            html += `<li>✅ Notification API: Obsługiwane (Status: ${Notification.permission})</li>`;
+        } else {
+            html += '<li>❌ Notification API: Nieobsługiwane</li>';
+        }
+        
+        // Data
+        const verbCount = Data.getAll().length;
+        html += `<li>ℹ️ Baza danych: Załadowano ${verbCount} czasowników.</li>`;
+        
+        // SRS Data
+        const srsData = Storage.get('srs_data', {});
+        const srsCount = Object.keys(srsData).length;
+        html += `<li>ℹ️ Dane SRS w chmurze: Zapamiętano ${srsCount} czasowników.</li>`;
+
+        html += '</ul>';
+        contentEl.innerHTML = html;
+        UI.showModal('diagnostics-modal');
+    }
+};
+
+
+// 14. DEBUG: Console-accessible helper functions (window._irv...).
+window._irv = {
+    data: Data,
+    storage: Storage,
+    srs: SRS,
+    analytics: Analytics,
+    state: () => App.state,
+    resetLocal: () => localStorage.clear(),
+    getDue: () => SRS.getDue(Storage.get('srs_data', {}))
+};
+
+
+// 15. MAIN: Main application controller, state management orchestration, and event listener initialization.
+const App = {
+    state: {
+        isAuthReady: false,
+        userId: null,
+        db: null,
+        auth: null,
+        currentView: 'explore',
+        filteredVerbs: [],
+        srsData: {},
+        settings: {},
+        analytics: {},
+        custom_lists: {},
+    },
+    init: async () => {
+        UI.init();
+        UI.showLoading(I18n.t('loading'));
+
+        try {
+            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            const app = initializeApp(firebaseConfig);
+            App.state.db = getFirestore(app);
+            App.state.auth = getAuth(app);
+
+            onAuthStateChanged(App.state.auth, async (user) => {
+                if (user) {
+                    App.state.userId = user.uid;
+                    console.log("User is signed in with UID:", user.uid);
+                    Utils.$('#auth-status').textContent = `${I18n.t('authStatus')}: ${user.uid}`;
+                    
+                    await Storage.init(App.state.db, App.state.userId, App.handleDataUpdate);
+                    
+                    if (!App.state.isAuthReady) {
+                        App.state.isAuthReady = true;
+                        App.postAuthInit();
+                    }
+                }
+            });
+
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(App.state.auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(App.state.auth);
+            }
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            UI.showLoading("Błąd inicjalizacji. Spróbuj odświeżyć stronę.");
+        }
+    },
+    handleDataUpdate: (data) => {
+        console.log("Received data update from Firestore.");
+        App.loadDataFromStorage(data);
+        if (App.state.isAuthReady) {
+            UI.rerenderCurrentView();
+            Notifications.updateButtonUI(); // Update notification button state on data change
+        }
+    },
+    loadDataFromStorage: (data) => {
+        App.state.srsData = data.srs_data || {};
+        App.state.analytics = data.analytics || { sprintStats: { highScore: 0, totalCorrect: 0, totalAttempted: 0 } };
+        App.state.custom_lists = data.custom_lists || {};
+        App.state.settings = data.settings || { theme: 'light', lang: 'pl', notifications: false };
+
+        localStorage.setItem('irv_trainer_local_settings', JSON.stringify({
+            theme: App.state.settings.theme,
+            lang: App.state.settings.lang
+        }));
+    },
+    postAuthInit: () => {
+        UI.applyUserPreferences(App.state.settings);
+        App.setupEventListeners();
+        
+        Explore.populatePatternFilter();
+        CustomLists.populateFilterDropdown();
+        Notifications.init();
+        SpeechService.init();
+        Router.init(); 
+        Autopilot.check();
+        
+        UI.hideLoading();
+    },
+    setupEventListeners: () => {
+        // Navigation
+        Utils.$('.nav-tabs').addEventListener('click', (e) => {
+            if (e.target.matches('.nav-tab')) {
+                Router.navigate(e.target.dataset.view);
+            }
+        });
+        
+        // Settings Modal
+        Utils.$('#settings-btn').addEventListener('click', () => UI.showModal('settings-modal'));
+        Utils.$$('.modal-close').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const modal = e.target.closest('.modal');
+                if (modal) UI.hideModal(modal.id);
+            });
+        });
+        Utils.$('#settings-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'settings-modal') UI.hideModal('settings-modal');
+        });
+        Utils.$('#diagnostics-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'diagnostics-modal') UI.hideModal('diagnostics-modal');
+        });
+        
+        // Settings controls
+        Utils.$('#language-select').addEventListener('change', async (e) => {
+            I18n.setLang(e.target.value);
+            App.state.settings.lang = e.target.value;
+            await Storage.set('settings', App.state.settings);
+            localStorage.setItem('irv_trainer_local_settings', JSON.stringify(App.state.settings));
+        });
+        Utils.$('#theme-select').addEventListener('change', async (e) => {
+            UI.setTheme(e.target.value);
+            App.state.settings.theme = e.target.value;
+            await Storage.set('settings', App.state.settings);
+            localStorage.setItem('irv_trainer_local_settings', JSON.stringify(App.state.settings));
+        });
+        Utils.$('#reset-data-btn').addEventListener('click', () => {
+            if (confirm(I18n.t('confirmReset') || 'Czy na pewno chcesz zresetować swoje postępy? Ta operacja jest nieodwracalna.')) {
+                localStorage.clear();
+                location.reload();
+            }
+        });
+        Utils.$('#diagnostics-btn').addEventListener('click', Diagnostics.run);
+        Utils.$('#notifications-toggle-btn').addEventListener('click', Notifications.requestPermission);
+
+        // Onboarding
+        Utils.$('#dismiss-onboarding-btn').addEventListener('click', () => {
+            localStorage.setItem('irv_trainer_onboarding_complete', true);
+            UI.hideModal('onboarding-modal');
+        });
+
+        // Autopilot Modal
+        Utils.$('#dismiss-welcome-btn').addEventListener('click', () => {
+            sessionStorage.setItem('irv_trainer_welcome_dismissed', 'true');
+            UI.hideModal('welcome-modal');
+        });
+        Utils.$('#start-welcome-session-btn').addEventListener('click', () => {
+            UI.hideModal('welcome-modal');
+            SessionManager.start(Autopilot.sessionPlan);
+        });
+
+
+        // Explore view listeners
+        const debouncedSearch = Utils.debounce(Explore.renderTable, 300);
+        Utils.$('#search-input').addEventListener('input', debouncedSearch);
+        Utils.$('#cefr-filter').addEventListener('change', Explore.renderTable);
+        Utils.$('#pattern-filter').addEventListener('change', Explore.renderTable);
+        Utils.$('#custom-list-filter').addEventListener('change', Explore.renderTable);
+        Utils.$('#verb-table-body').addEventListener('click', (e) => {
+            const row = e.target.closest('tr');
+            if (row) {
+                const verbId = parseInt(row.dataset.id);
+                // Placeholder for verb detail view
+                console.log('Clicked verb:', Data.getById(verbId));
+            }
+        });
+
+        // Learn view listeners
+        Utils.$('#flashcard-container .flashcard').addEventListener('click', (e) => {
+            if (!e.target.closest('button, a, img, input')) {
+                e.currentTarget.classList.toggle('is-flipped');
+            }
+        });
+        Utils.$('#flashcard-controls').addEventListener('click', (e) => {
+            if (e.target.matches('button[data-grade]')) {
+                const grade = parseInt(e.target.dataset.grade);
+                Learn.processAnswer(grade);
+            }
+            if (e.target.id === 'ai-helper-btn') {
+                Learn.getAiHelp();
+            }
+        });
+
+        // Conjugate view listeners
+        Utils.$('#conjugate-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            Conjugate.checkAnswer();
+        });
+        
+        // Cloze view listeners
+        Utils.$('#cloze-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            Cloze.checkAnswer();
+        });
+        Utils.$('#cloze-regen-btn').addEventListener('click', () => {
+            Cloze.loadNextQuestion();
+        });
+
+        // Listen view listeners
+        Utils.$('#listen-btn').addEventListener('click', () => Listen.speakVerb());
+        Utils.$('#listen-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            Listen.checkAnswer();
+        });
+        
+        // Match view listeners
+        Utils.$('#match-container').addEventListener('click', (e) => {
+            if(e.target.matches('.match-card')) {
+                Match.selectCard(e.target);
+            }
+        });
+
+        // Sprint view listeners
+        Utils.$('#start-sprint-btn').addEventListener('click', () => Sprint.start());
+        Utils.$('#restart-sprint-btn').addEventListener('click', () => Sprint.showStartScreen());
+
+        // Exam view listeners
+        Utils.$('#start-exam-btn').addEventListener('click', () => Exam.start());
+        Utils.$('#restart-exam-btn').addEventListener('click', () => Exam.showStartScreen());
+
+
+        // Custom Lists listeners
+        Utils.$('#create-new-list-btn').addEventListener('click', async () => {
+            const input = Utils.$('#new-list-name-input');
+            const name = input.value.trim();
+            if (name) {
+                if (await CustomLists.createList(name)) {
+                    input.value = '';
+                } else {
+                    alert('Lista o tej nazwie już istnieje.');
+                }
+            }
+        });
+        Utils.$('#custom-lists-container').addEventListener('click', async (e) => {
+            if (e.target.matches('.delete-list-btn')) {
+                const listName = e.target.dataset.listName;
+                if (confirm(`Czy na pewno chcesz usunąć listę "${listName}"?`)) {
+                    await CustomLists.deleteList(listName);
+                }
+            }
+        });
+
+        // Worksheet listeners
+        Utils.$('#generate-worksheet-btn').addEventListener('click', Worksheets.generate);
+    }
+};
+
+const Explore = {
+    renderTable: () => {
+        const searchVal = Utils.normalize(Utils.$('#search-input').value);
+        const cefrVal = Utils.$('#cefr-filter').value;
+        const patternVal = Utils.$('#pattern-filter').value;
+        const customListVal = Utils.$('#custom-list-filter').value;
+        const customLists = Storage.get('custom_lists', {});
+
+        App.state.filteredVerbs = Data.getAll().filter(v => {
+            const searchMatch = searchVal === '' || 
+                Utils.normalize(v.base).includes(searchVal) ||
+                Utils.normalize(v.past).includes(searchVal) ||
+                Utils.normalize(v.participle).includes(searchVal) ||
+                Utils.normalize(v.polish_gloss).includes(searchVal);
+            
+            const cefrMatch = cefrVal === 'all' || v.cefr === cefrVal;
+            const patternMatch = patternVal === 'all' || v.vowel_pattern_family === patternVal;
+            const customListMatch = customListVal === 'all' || customLists[customListVal]?.verbs.includes(v.id);
+
+            return searchMatch && cefrMatch && patternMatch && customListMatch;
+        });
+
+        const tableBody = Utils.$('#verb-table-body');
+        tableBody.innerHTML = App.state.filteredVerbs.map(v => `
+            <tr data-id="${v.id}">
+                <td><strong>${v.base}</strong></td>
+                <td>${v.past}</td>
+                <td>${v.participle}</td>
+                <td>${v.polish_gloss}</td>
+                <td><span class="cefr-label cefr-${v.cefr}">${v.cefr}</span></td>
+            </tr>
+        `).join('');
+
+        Utils.$('#verb-count-display').textContent = `${App.state.filteredVerbs.length} czasowników`;
+    },
+    populatePatternFilter: () => {
+        const select = Utils.$('#pattern-filter');
+        const patterns = Data.getPatternFamilies();
+        patterns.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p;
+            option.textContent = p;
+            select.appendChild(option);
+        });
+    }
+};
+
+const Learn = {
+    deck: [],
+    currentCardIndex: 0,
+    currentVerb: null,
+    startSession: () => {
+        if (SessionManager.isActive) {
+            Learn.deck = SessionManager.getCurrentTaskDeck();
+        } else {
+            const { due, new: newCards } = SRS.getDue(Storage.get('srs_data', {}));
+            Learn.deck = [...due, ...newCards.slice(0, 10)];
+        }
+        
+        Learn.currentCardIndex = 0;
+
+        if (Learn.deck.length > 0) {
+            Utils.$('#learn-deck-finished').classList.add('hidden');
+            Utils.$('#flashcard-container').classList.remove('hidden');
+            Utils.$('#flashcard-controls').classList.remove('hidden');
+            Learn.showNextCard();
+        } else {
+            Utils.$('#learn-deck-finished').classList.remove('hidden');
+            Utils.$('#flashcard-container').classList.add('hidden');
+            Utils.$('#flashcard-controls').classList.add('hidden');
+            if(SessionManager.isActive) SessionManager.next();
+        }
+    },
+    showNextCard: async () => {
+        const cardEl = Utils.$('#flashcard-container .flashcard');
+        cardEl.classList.remove('is-flipped');
+        
+        if (Learn.currentCardIndex >= Learn.deck.length) {
+            if(SessionManager.isActive) {
+                SessionManager.next();
+            } else {
+                Learn.startSession();
+            }
+            return;
+        }
+        const verbId = Learn.deck[Learn.currentCardIndex];
+        Learn.currentVerb = Data.getById(parseInt(verbId));
+        
+        Utils.$('.flashcard-front .flashcard-main-word').textContent = Learn.currentVerb.base;
+        Utils.$('.flashcard-front .flashcard-polish').textContent = Learn.currentVerb.polish_gloss;
+        
+        Utils.$('.flashcard-back .flashcard-forms').textContent = `${Learn.currentVerb.base} - ${Learn.currentVerb.past} - ${Learn.currentVerb.participle}`;
+        const example = Learn.currentVerb.examples.find(ex => ex.en.toLowerCase().includes(Learn.currentVerb.base)) || Learn.currentVerb.examples[0];
+        Utils.$('.flashcard-back .flashcard-example').textContent = example.en;
+
+        await Learn.renderAiAssets();
+    },
+    processAnswer: async (grade) => {
+        const verbId = Learn.deck[Learn.currentCardIndex];
+        const srsData = Storage.get('srs_data', {});
+        const currentSrsItem = srsData[verbId];
+        srsData[verbId] = SRS.scheduleNext(currentSrsItem, grade);
+        await Storage.set('srs_data', srsData);
+        
+        Learn.currentCardIndex++;
+        Learn.showNextCard();
+    },
+    getAiHelp: async (regenerate = false) => {
+        const btn = Utils.$('#ai-helper-btn');
+        btn.disabled = true;
+        btn.textContent = I18n.t('aiHelpGenerating');
+        const container = Utils.$('#ai-helper-container');
+        container.innerHTML = `<p>${I18n.t('aiHelpGenerating')}</p>`;
+
+        const assets = await Storage.getAsset(Learn.currentVerb.id) || {};
+        let assetsUpdated = false;
+
+        // --- 1. Generate Image Sequentially ---
+        if (!assets.imageBase64 || regenerate) {
+            console.log("Generating mnemonic image...");
+            const imageData = await Gemini.generateMnemonicImage(Learn.currentVerb);
+            if (imageData) {
+                assets.imageBase64 = imageData;
+                assetsUpdated = true;
+            } else {
+                container.innerHTML = `<p style="color: var(--error);">${I18n.t('aiHelpError')}: Image</p>`;
+            }
+        }
+
+        // --- 2. Generate Audio Sequentially ---
+        if (!assets.audioBase64 || regenerate) {
+            console.log("Generating verb audio...");
+            const audioData = await Gemini.generateVerbAudio(Learn.currentVerb);
+            if (audioData) {
+                assets.audioBase64 = audioData;
+                assetsUpdated = true;
+            } else {
+                 container.innerHTML += `<p style="color: var(--error);">${I18n.t('aiHelpError')}: Audio</p>`;
+            }
+        }
+
+        // --- 3. Save to Firestore if anything new was generated ---
+        if (assetsUpdated) {
+            await Storage.saveAsset(Learn.currentVerb.id, assets);
+        }
+
+        // --- 4. Render results ---
+        await Learn.renderAiAssets();
+        btn.disabled = false;
+        btn.textContent = I18n.t('aiHelp');
+    },
+    renderAiAssets: async () => {
+        const container = Utils.$('#ai-helper-container');
+        container.innerHTML = '';
+        const assets = await Storage.getAsset(Learn.currentVerb.id);
+
+        if (assets) {
+            if (assets.imageBase64) {
+                const img = document.createElement('img');
+                img.id = 'ai-generated-image';
+                img.src = `data:image/png;base64,${assets.imageBase64}`;
+                img.alt = `Mnemonic for ${Learn.currentVerb.base}`;
+                container.appendChild(img);
+            }
+            if (assets.audioBase64) {
+                const audioButton = document.createElement('button');
+                audioButton.className = 'btn btn-secondary btn-icon';
+                audioButton.textContent = '🔊';
+                audioButton.onclick = () => {
+                    const audioData = Utils.base64ToArrayBuffer(assets.audioBase64);
+                    const pcm16 = new Int16Array(audioData);
+                    const wavBlob = Utils.pcmToWav(pcm16, 24000); // Gemini TTS uses 24kHz
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    const audio = new window.Audio(audioUrl); // Use window.Audio to avoid conflict
+                    audio.play();
+                };
+                container.appendChild(audioButton);
+            }
+             if (assets.imageBase64) {
+                const regenButton = document.createElement('button');
+                regenButton.className = 'btn btn-secondary btn-icon';
+                regenButton.textContent = '🔄';
+                regenButton.title = I18n.t('aiRegenerate');
+                regenButton.onclick = () => Learn.getAiHelp(true);
+                container.appendChild(regenButton);
+            }
+        }
+    }
+};
+
+const Conjugate = {
+    currentVerb: null,
+    sessionProgress: 0,
+    sessionTotal: 0,
+    loadNextVerb: () => {
+        if (SessionManager.isActive) {
+            if (Conjugate.sessionProgress >= Conjugate.sessionTotal) {
+                SessionManager.next();
+                return;
+            }
+            const deck = SessionManager.getCurrentTaskDeck();
+            Conjugate.currentVerb = Data.getById(parseInt(deck[Conjugate.sessionProgress]));
+        } else {
+            const verbs = Data.getAll();
+            Conjugate.currentVerb = verbs[Math.floor(Math.random() * verbs.length)];
+        }
+        
+        Utils.$('#conjugate-base-form').textContent = Conjugate.currentVerb.base;
+        Utils.$('#past-input').value = '';
+        Utils.$('#participle-input').value = '';
+        Utils.$('#conjugate-feedback').innerHTML = '';
+        Utils.$('#past-input').focus();
+    },
+    checkAnswer: () => {
+        const pastInput = Utils.$('#past-input').value;
+        const participleInput = Utils.$('#participle-input').value;
+        const verb = Conjugate.currentVerb;
+
+        const isPastCorrect = verb.past.split('/').some(v => Utils.isTypo(v, pastInput));
+        const isParticipleCorrect = verb.participle.split('/').some(v => Utils.isTypo(v, participleInput));
+        
+        const feedbackEl = Utils.$('#conjugate-feedback');
+        if (isPastCorrect && isParticipleCorrect) {
+            feedbackEl.innerHTML = `<span style="color: var(--success);">Doskonale!</span>`;
+            if (SessionManager.isActive) Conjugate.sessionProgress++;
+            setTimeout(Conjugate.loadNextVerb, 1500);
+        } else {
+            let feedback = 'Spróbuj ponownie. ';
+            if (!isPastCorrect) feedback += `Forma Past Simple jest niepoprawna. `;
+            if (!isParticipleCorrect) feedback += `Forma Past Participle jest niepoprawna. `;
+            feedbackEl.innerHTML = `<span style="color: var(--error);">${feedback}</span>`;
+        }
+    }
+};
+
+const Cloze = {
+    currentVerb: null,
+    correctForm: '',
+    sessionProgress: 0,
+    sessionTotal: 0,
+    loadNextQuestion: async () => {
+        const regenBtn = Utils.$('#cloze-regen-btn');
+        regenBtn.disabled = true;
+        
+        const sentenceEl = Utils.$('#cloze-sentence');
+        sentenceEl.innerHTML = 'Generowanie zdania...';
+        Utils.$('#cloze-feedback').innerHTML = '';
+
+        if (SessionManager.isActive) {
+            if (Cloze.sessionProgress >= Cloze.sessionTotal) {
+                SessionManager.next();
+                return;
+            }
+            const deck = SessionManager.getCurrentTaskDeck();
+            Cloze.currentVerb = Data.getById(parseInt(deck[Cloze.sessionProgress]));
+        } else {
+            const verbsWithExamples = Data.getAll().filter(v => v.examples && v.examples.length > 0);
+            Cloze.currentVerb = verbsWithExamples[Math.floor(Math.random() * verbsWithExamples.length)];
+        }
+        
+        const { sentence, answer } = await Gemini.generateClozeSentence(Cloze.currentVerb);
+        Cloze.correctForm = answer;
+
+        const sentenceHTML = sentence.replace('___', `<input type="text" id="cloze-input" class="form-control" style="display: inline-block; width: 200px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`);
+        sentenceEl.innerHTML = `${sentenceHTML} <br> (<b>${Cloze.currentVerb.base}</b>)`;
+
+        setTimeout(() => Utils.$('#cloze-input')?.focus(), 100);
+        regenBtn.disabled = false;
+    },
+    checkAnswer: () => {
+        const input = Utils.$('#cloze-input').value;
+        const feedbackEl = Utils.$('#cloze-feedback');
+        
+        const isCorrect = Cloze.correctForm.split('/').some(v => Utils.isTypo(v, input));
+
+        if (isCorrect) {
+            feedbackEl.innerHTML = `<span style="color: var(--success);">Świetnie!</span>`;
+            if (SessionManager.isActive) Cloze.sessionProgress++;
+            setTimeout(Cloze.loadNextQuestion, 1500);
+        } else {
+            feedbackEl.innerHTML = `<span style="color: var(--error);">${I18n.t('correctAnswer')}: ${Cloze.correctForm}</span>`;
+        }
+    }
+};
+
+const Listen = {
+    currentVerb: null,
+    spokenForm: '',
+    loadNextVerb: () => {
+        const verbs = Data.getAll();
+        Listen.currentVerb = verbs[Math.floor(Math.random() * verbs.length)];
+        
+        const forms = [Listen.currentVerb.base, Listen.currentVerb.past, Listen.currentVerb.participle];
+        Listen.spokenForm = forms[Math.floor(Math.random() * forms.length)].split('/')[0];
+
+        Utils.$('#listen-base-input').value = '';
+        Utils.$('#listen-past-input').value = '';
+        Utils.$('#listen-participle-input').value = '';
+        Utils.$('#listen-feedback').innerHTML = '';
+        
+        Listen.speakVerb();
+    },
+    speakVerb: () => {
+        SpeechService.speak(Listen.spokenForm);
+    },
+    checkAnswer: () => {
+        const baseIn = Utils.$('#listen-base-input').value;
+        const pastIn = Utils.$('#listen-past-input').value;
+        const partIn = Utils.$('#listen-participle-input').value;
+        const verb = Listen.currentVerb;
+
+        const isBaseCorrect = Utils.isTypo(verb.base, baseIn);
+        const isPastCorrect = verb.past.split('/').some(v => Utils.isTypo(v, pastIn));
+        const isParticipleCorrect = verb.participle.split('/').some(v => Utils.isTypo(v, partIn));
+
+        const feedbackEl = Utils.$('#listen-feedback');
+        if (isBaseCorrect && isPastCorrect && isParticipleCorrect) {
+            feedbackEl.innerHTML = `<span style="color: var(--success);">Doskonale!</span>`;
+            setTimeout(Listen.loadNextVerb, 1500);
+        } else {
+            feedbackEl.innerHTML = `<span style="color: var(--error);">${I18n.t('correctAnswer')}: ${verb.base} - ${verb.past} - ${verb.participle}</span>`;
+        }
+    }
+};
+
+const Match = {
+    roundVerbs: [],
+    selectedCard: null,
+    pairsLeft: 0,
+    start: (count = 5) => {
+        const shuffled = Utils.shuffleArray([...Data.getAll()]);
+        Match.roundVerbs = shuffled.slice(0, count);
+        Match.pairsLeft = count;
+        
+        const col1Items = Utils.shuffleArray([...Match.roundVerbs]);
+        const col2Items = Utils.shuffleArray([...Match.roundVerbs]);
+
+        const col1El = Utils.$('#match-col-1');
+        const col2El = Utils.$('#match-col-2');
+        
+        col1El.innerHTML = col1Items.map(v => `<div class="match-card" data-id="${v.id}">${v.base}</div>`).join('');
+        col2El.innerHTML = col2Items.map(v => `<div class="match-card" data-id="${v.id}">${v.past} / ${v.participle}</div>`).join('');
+        
+        Utils.$('#match-feedback').innerHTML = '';
+        Match.selectedCard = null;
+    },
+    selectCard: (cardEl) => {
+        if (cardEl.classList.contains('correct')) return;
+
+        if (!Match.selectedCard) {
+            // First selection
+            Utils.$$('.match-card.selected').forEach(c => c.classList.remove('selected'));
+            cardEl.classList.add('selected');
+            Match.selectedCard = cardEl;
+        } else {
+            // Second selection
+            if (Match.selectedCard.parentElement === cardEl.parentElement) {
+                // Clicked another card in the same column
+                Utils.$$('.match-card.selected').forEach(c => c.classList.remove('selected'));
+                cardEl.classList.add('selected');
+                Match.selectedCard = cardEl;
+                return;
+            }
+
+            // Check for a match
+            if (Match.selectedCard.dataset.id === cardEl.dataset.id) {
+                // Correct match
+                Match.selectedCard.classList.add('correct');
+                cardEl.classList.add('correct');
+                Match.selectedCard.classList.remove('selected');
+                Match.selectedCard = null;
+                Match.pairsLeft--;
+                if (Match.pairsLeft === 0) {
+                    Utils.$('#match-feedback').innerHTML = `<span style="color: var(--success);">Świetnie! Wszystkie pary dopasowane!</span>`;
+                    setTimeout(Match.start, 2000);
+                }
+            } else {
+                // Incorrect match
+                Match.selectedCard.classList.add('incorrect');
+                cardEl.classList.add('incorrect');
+                setTimeout(() => {
+                    Match.selectedCard?.classList.remove('incorrect', 'selected');
+                    cardEl.classList.remove('incorrect');
+                    Match.selectedCard = null;
+                }, 800);
+            }
+        }
+    }
+};
+
+const Sprint = {
+    timerId: null,
+    timeLeft: 0,
+    score: 0,
+    streak: 0,
+    currentQuestion: null,
+    totalCorrect: 0,
+    totalAttempted: 0,
+    
+    showStartScreen: () => {
+        clearInterval(Sprint.timerId);
+        Utils.$('#sprint-start-screen').classList.remove('hidden');
+        Utils.$('#sprint-game-screen').classList.add('hidden');
+        Utils.$('#sprint-results-screen').classList.add('hidden');
+    },
+    start: () => {
+        Sprint.timeLeft = 60;
+        Sprint.score = 0;
+        Sprint.streak = 0;
+        Sprint.totalCorrect = 0;
+        Sprint.totalAttempted = 0;
+        
+        Utils.$('#sprint-start-screen').classList.add('hidden');
+        Utils.$('#sprint-game-screen').classList.remove('hidden');
+        
+        Sprint.updateHUD();
+        Sprint.loadNextQuestion();
+        
+        Sprint.timerId = setInterval(() => {
+            Sprint.timeLeft--;
+            Sprint.updateHUD();
+            if (Sprint.timeLeft <= 0) {
+                Sprint.end();
+            }
+        }, 1000);
+    },
+    end: () => {
+        clearInterval(Sprint.timerId);
+        Utils.$('#sprint-game-screen').classList.add('hidden');
+        Utils.$('#sprint-results-screen').classList.remove('hidden');
+        
+        Utils.$('#sprint-final-score-display').textContent = Sprint.score;
+        const accuracy = Sprint.totalAttempted > 0 ? Math.round((Sprint.totalCorrect / Sprint.totalAttempted) * 100) : 0;
+        Utils.$('#sprint-accuracy-display').textContent = `Dokładność: ${accuracy}%`;
+        
+        Analytics.trackSprintResult(Sprint.score, Sprint.totalCorrect, Sprint.totalAttempted);
+    },
+    updateHUD: () => {
+        Utils.$('#sprint-timer').textContent = Sprint.timeLeft;
+        Utils.$('#sprint-score').textContent = Sprint.score;
+        const streakEl = Utils.$('#sprint-streak');
+        if (Sprint.streak > 1) {
+            streakEl.textContent = `🔥 Seria x${Sprint.streak}`;
+            streakEl.classList.remove('hidden');
+        } else {
+            streakEl.classList.add('hidden');
+        }
+    },
+    loadNextQuestion: () => {
+        const verb = Data.getAll()[Math.floor(Math.random() * Data.getAll().length)];
+        Sprint.currentQuestion = { verb };
+        
+        const container = Utils.$('#sprint-question-container');
+        container.innerHTML = `
+            <p style="text-align: center; font-size: 2rem; font-weight: 700;">${verb.base}</p>
+            <form id="sprint-form" style="margin-top: 1rem;">
+                <div class="form-group">
+                    <input type="text" name="past" class="form-control" placeholder="${I18n.t('colPast')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+                <div class="form-group">
+                    <input type="text" name="participle" class="form-control" placeholder="${I18n.t('colParticiple')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                </div>
+                <button type="submit" class="hidden"></button>
+            </form>
+        `;
+        
+        const form = Utils.$('#sprint-form');
+        form.querySelector('input[name="past"]').focus();
+        
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            Sprint.checkAnswer(new FormData(form));
+        });
+    },
+    checkAnswer: (formData) => {
+        const verb = Sprint.currentQuestion.verb;
+        const pastIn = formData.get('past');
+        const partIn = formData.get('participle');
+        
+        const isPastCorrect = verb.past.split('/').some(v => Utils.isTypo(v, pastIn, 0)); // Stricter check for sprint
+        const isParticipleCorrect = verb.participle.split('/').some(v => Utils.isTypo(v, partIn, 0));
+        
+        Sprint.totalAttempted++;
+        if (isPastCorrect && isParticipleCorrect) {
+            Sprint.streak++;
+            Sprint.score += 10 + (Sprint.streak * 2); // Base points + streak bonus
+            Sprint.totalCorrect++;
+        } else {
+            Sprint.streak = 0;
+        }
+        
+        Sprint.updateHUD();
+        Sprint.loadNextQuestion();
+    }
+};
+
+const Exam = {
+    questions: [],
+    currentQuestionIndex: 0,
+    score: 0,
+    showStartScreen: () => {
+        Utils.$('#exam-start-screen').classList.remove('hidden');
+        Utils.$('#exam-question-screen').classList.add('hidden');
+        Utils.$('#exam-results-screen').classList.add('hidden');
+    },
+    start: () => {
+        Exam.questions = Exam.generateQuestions(10);
+        Exam.currentQuestionIndex = 0;
+        Exam.score = 0;
+        Utils.$('#exam-start-screen').classList.add('hidden');
+        Utils.$('#exam-question-screen').classList.remove('hidden');
+        Exam.renderQuestion();
+    },
+    generateQuestions: (count) => {
+        const allVerbs = Utils.shuffleArray([...Data.getAll()]);
+        const questions = [];
+        for(let i=0; i<count; i++) {
+            const verb = allVerbs[i % allVerbs.length];
+            // Alternate between question types
+            if (i % 2 === 0 && verb.examples.length > 0) {
+                questions.push({ type: 'cloze', verb: verb });
+            } else {
+                questions.push({ type: 'conjugate', verb: verb });
+            }
+        }
+        return questions;
+    },
+    renderQuestion: () => {
+        if (Exam.currentQuestionIndex >= Exam.questions.length) {
+            Exam.showResults();
+            return;
+        }
+        Utils.$('#exam-progress').textContent = `Pytanie ${Exam.currentQuestionIndex + 1} / ${Exam.questions.length}`;
+        const q = Exam.questions[Exam.currentQuestionIndex];
+        const container = Utils.$('#exam-question-container');
+        container.innerHTML = ''; // Clear previous
+        
+        if (q.type === 'conjugate') {
+            container.innerHTML = `
+                <p style="text-align: center; font-size: 1.2rem; color: var(--text-secondary);">${I18n.t('conjugatePrompt')}</p>
+                <p style="text-align: center; font-size: 2.5rem; font-weight: 700;">${q.verb.base}</p>
+                <form id="exam-form">
+                    <div class="form-group"><label>${I18n.t('colPast')}</label><input type="text" name="past" class="form-control"></div>
+                    <div class="form-group"><label>${I18n.t('colParticiple')}</label><input type="text" name="participle" class="form-control"></div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">${I18n.t('btnCheck')}</button>
+                </form>
+            `;
+        } else { // cloze
+            const example = q.verb.examples[0];
+            const correctForm = [q.verb.base, q.verb.past, q.verb.participle].find(f => example.en.toLowerCase().includes(f.split('/')[0])) || q.verb.base;
+            const regex = new RegExp(`\\b(${correctForm.replace('/', '|')})\\b`, 'i');
+            const sentenceHTML = example.en.replace(regex, `<input type="text" name="cloze" class="form-control" style="display: inline-block; width: 200px;">`);
+            q.correctAnswer = correctForm; // Store correct answer for checking
+            container.innerHTML = `
+                 <p style="text-align: center; font-size: 1.2rem; color: var(--text-secondary);">${I18n.t('clozePrompt')}</p>
+                 <form id="exam-form">
+                    <p style="font-size: 1.5rem; text-align: center; margin: 1.5rem 0; line-height: 1.6;">
+                        ${sentenceHTML} (<b>${q.verb.base}</b>)
+                    </p>
+                    <button type="submit" class="btn btn-primary" style="width:100%">${I18n.t('btnCheck')}</button>
+                </form>
+            `;
+        }
+        
+        Utils.$('#exam-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            Exam.checkAnswer(new FormData(e.target));
+        });
+    },
+    checkAnswer: (formData) => {
+        const q = Exam.questions[Exam.currentQuestionIndex];
+        let isCorrect = false;
+        if (q.type === 'conjugate') {
+            const pastIn = formData.get('past');
+            const partIn = formData.get('participle');
+            const isPastCorrect = q.verb.past.split('/').some(v => Utils.isTypo(v, pastIn));
+            const isParticipleCorrect = q.verb.participle.split('/').some(v => Utils.isTypo(v, partIn));
+            isCorrect = isPastCorrect && isParticipleCorrect;
+        } else { // cloze
+            const clozeIn = formData.get('cloze');
+            isCorrect = q.correctAnswer.split('/').some(v => Utils.isTypo(v, clozeIn));
+        }
+
+        q.isCorrect = isCorrect;
+        if (isCorrect) Exam.score++;
+        
+        Exam.currentQuestionIndex++;
+        Exam.renderQuestion();
+    },
+    showResults: () => {
+        Utils.$('#exam-question-screen').classList.add('hidden');
+        Utils.$('#exam-results-screen').classList.remove('hidden');
+
+        Utils.$('#exam-score').textContent = `${I18n.t('yourScore')}: ${Exam.score} / ${Exam.questions.length}`;
+        const resultsList = Utils.$('#exam-results-list');
+        resultsList.innerHTML = Exam.questions.map((q, index) => {
+            const verb = q.verb;
+            const statusClass = q.isCorrect ? 'correct' : 'incorrect';
+            const correctAnswer = q.type === 'conjugate' 
+                ? `${verb.base} - ${verb.past} - ${verb.participle}`
+                : `${q.correctAnswer} (in sentence)`;
+            return `
+                <li class="${statusClass}">
+                    <strong>Pytanie ${index + 1}: ${verb.base}</strong>
+                    ${!q.isCorrect ? `<br><small>${I18n.t('correctAnswer')}: ${correctAnswer}</small>` : ''}
+                </li>
+            `;
+        }).join('');
+    }
+};
+
+const Stats = {
+    render: () => {
+        const container = Utils.$('#stats-container');
+        
+        const srsData = Storage.get('srs_data', {});
+        // A verb is "mastered" if its interval is > 21 days (arbitrary threshold)
+        const masteredCount = Object.values(srsData).filter(item => item.interval > 21).length;
+        
+        const analytics = Storage.get('analytics', { sprintStats: { highScore: 0, totalCorrect: 0, totalAttempted: 0 } });
+        const sprintStats = analytics.sprintStats;
+        const sprintAccuracy = sprintStats.totalAttempted > 0 
+            ? Math.round((sprintStats.totalCorrect / sprintStats.totalAttempted) * 100)
+            : 0;
+
+        container.innerHTML = `
+            <div style="text-align: center;">
+                <h4 style="color: var(--text-secondary);">${I18n.t('statsMastered')}</h4>
+                <p style="font-size: 2.5rem; font-weight: bold;">${masteredCount}</p>
+            </div>
+            <div style="text-align: center;">
+                <h4 style="color: var(--text-secondary);">${I18n.t('statsSprintBest')}</h4>
+                <p style="font-size: 2.5rem; font-weight: bold;">${sprintStats.highScore}</p>
+            </div>
+            <div style="text-align: center;">
+                <h4 style="color: var(--text-secondary);">${I18n.t('statsSprintAccuracy')}</h4>
+                <p style="font-size: 2.5rem; font-weight: bold;">${sprintAccuracy}%</p>
+            </div>
+        `;
+    }
+}
+
+const Ranking = {
+    saveScore: async (score) => {
+        if (!score || score === 0) return;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const rankingsCol = collection(Storage.db, `artifacts/${appId}/public/data/sprintRankings`);
+        try {
+            await addDoc(rankingsCol, {
+                userId: Storage.userId,
+                score: score,
+                timestamp: new Date()
+            });
+            console.log("Score saved to global ranking.");
+        } catch (e) {
+            console.error("Error saving score to ranking:", e);
+        }
+    },
+    render: async () => {
+        const tableBody = Utils.$('#ranking-table-body');
+        tableBody.innerHTML = `<tr><td colspan="3">${I18n.t('loading')}</td></tr>`;
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const rankingsCol = collection(Storage.db, `artifacts/${appId}/public/data/sprintRankings`);
+        const q = query(rankingsCol, limit(10)); // Note: Firestore requires an index for ordering. For simplicity, we fetch and sort client-side.
+        
+        try {
+            const querySnapshot = await getDocs(q);
+            const scores = [];
+            querySnapshot.forEach((doc) => {
+                scores.push(doc.data());
+            });
+            
+            // Sort by score descending
+            scores.sort((a, b) => b.score - a.score);
+
+            if (scores.length === 0) {
+                 tableBody.innerHTML = `<tr><td colspan="3">Brak wyników. Zagraj w Sprint!</td></tr>`;
+                 return;
+            }
+
+            tableBody.innerHTML = scores.map((entry, index) => `
+                <tr>
+                    <td class="rank">${index + 1}</td>
+                    <td class="user-id">${entry.userId}</td>
+                    <td class="score">${entry.score}</td>
+                </tr>
+            `).join('');
+
+        } catch (e) {
+            console.error("Error fetching ranking:", e);
+            tableBody.innerHTML = `<tr><td colspan="3">Błąd ładowania rankingu.</td></tr>`;
+        }
+    }
+}
+
+const Autopilot = {
+    sessionPlan: [],
+    check: () => {
+        if (sessionStorage.getItem('irv_trainer_welcome_dismissed')) {
+            return;
+        }
+        const { due, new: newCards } = SRS.getDue(Storage.get('srs_data', {}));
+        
+        if (due.length > 0 || newCards.length > 0) {
+            Autopilot.createSessionPlan(due, newCards);
+            const dueCount = Autopilot.sessionPlan.reduce((sum, task) => sum + task.count, 0);
+            Utils.$('#welcome-message').textContent = I18n.t('welcomeMessagePro', due.length, newCards.slice(0, 5).length);
+            UI.showModal('welcome-modal');
+        }
+    },
+    createSessionPlan: (due, newCards) => {
+        Autopilot.sessionPlan = [];
+        const plan = [];
+        const dueAndNew = [...due, ...newCards.slice(0, 5)];
+
+        if (dueAndNew.length > 0) {
+            plan.push({ type: 'learn', count: Math.min(dueAndNew.length, 5), deck: dueAndNew });
+        }
+        if (due.length > 2) {
+             plan.push({ type: 'conjugate', count: 3, deck: Utils.shuffleArray([...due]).slice(0,3) });
+        }
+        if (due.length > 4) {
+             plan.push({ type: 'cloze', count: 2, deck: Utils.shuffleArray([...due]).slice(0,2) });
+        }
+        Autopilot.sessionPlan = plan;
+    }
+}
+
+const SessionManager = {
+    isActive: false,
+    plan: [],
+    currentTaskIndex: -1,
+    start: (plan) => {
+        SessionManager.plan = plan;
+        SessionManager.isActive = true;
+        SessionManager.currentTaskIndex = -1;
+        SessionManager.next();
+    },
+    next: () => {
+        SessionManager.currentTaskIndex++;
+        if (SessionManager.currentTaskIndex >= SessionManager.plan.length) {
+            SessionManager.end();
+            return;
+        }
+        const task = SessionManager.plan[SessionManager.currentTaskIndex];
+        switch (task.type) {
+            case 'learn':
+                Learn.sessionProgress = 0;
+                Learn.sessionTotal = task.count;
+                break;
+            case 'conjugate':
+                Conjugate.sessionProgress = 0;
+                Conjugate.sessionTotal = task.count;
+                break;
+            case 'cloze':
+                Cloze.sessionProgress = 0;
+                Cloze.sessionTotal = task.count;
+                break;
+        }
+        Router.navigate(task.type);
+    },
+    end: () => {
+        SessionManager.isActive = false;
+        SessionManager.plan = [];
+        alert("Świetna robota! Ukończyłeś/aś dzisiejszą sesję!");
+        Router.navigate('explore');
+    },
+    getCurrentTaskDeck: () => {
+        if (!SessionManager.isActive) return [];
+        return SessionManager.plan[SessionManager.currentTaskIndex].deck;
+    }
+};
+
+const Gemini = {
+    generateClozeSentence: async (verb) => {
+        const formChoices = ['past simple', 'past participle'];
+        const formToUse = formChoices[Math.floor(Math.random() * formChoices.length)];
+        const answer = verb[formToUse.replace(' ', '')] || verb.past; // fallback to past
+
+        const prompt = `Create a simple English sentence for a B1 level learner using the ${formToUse} form of the verb '${verb.base}'. The sentence must contain this verb form. Replace this verb form with '___'. Return ONLY the sentence as a single line of text.`;
+        
+        try {
+            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates.length > 0 && result.candidates[0].content?.parts[0]?.text) {
+                const text = result.candidates[0].content.parts[0].text;
+                return { sentence: text.trim(), answer: answer.split('/')[0] };
+            } else {
+                throw new Error("Invalid response structure from API");
+            }
+        } catch (error) {
+            console.error("Gemini API error:", error);
+            // Fallback to static example
+            const example = verb.examples[0].en;
+            const formToBlank = [verb.past, verb.participle, verb.base].find(f => example.toLowerCase().includes(f.split('/')[0])) || verb.base;
+            return { sentence: example.replace(new RegExp(`\\b(${formToBlank.replace('/', '|')})\\b`, 'i'), '___'), answer: formToBlank.split('/')[0] };
+        }
+    },
+    generateMnemonicImage: async (verb) => {
+        const prompt = `A simple, memorable, cartoon-style mnemonic image for the meaning of the English verb '${verb.base}', which is '${verb.polish_gloss}' in Polish. Do not include any text or letters in the image.`;
+        try {
+            const payload = { instances: [{ prompt: prompt }], parameters: { "sampleCount": 1 } };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`Image API failed with status ${response.status}`);
+            const result = await response.json();
+            if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                return result.predictions[0].bytesBase64Encoded;
+            }
+            return null;
+        } catch (error) {
+            console.error("Image generation error:", error);
+            return null;
+        }
+    },
+    generateVerbAudio: async (verb) => {
+        const text = `${verb.base}, ${verb.past}, ${verb.participle}`;
+        try {
+            const payload = {
+                contents: [{ parts: [{ text: `Say clearly: ${text}` }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Charon" } } }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`TTS API failed with status ${response.status}`);
+            const result = await response.json();
+            const part = result?.candidates?.[0]?.content?.parts?.[0];
+            if (part?.inlineData?.data) {
+                return part.inlineData.data;
+            }
+            return null;
+        } catch (error) {
+            console.error("TTS generation error:", error);
+            return null;
+        }
+    }
+};
+
+
+// Start the application
+App.init();
+
+});
+    </script>
+</body>
+</html>
