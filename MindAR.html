@@ -8,7 +8,6 @@
         * { box-sizing: border-box; }
         body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
-        /* CRITICAL: AR container must have position: relative and proper dimensions */
         #canvas-container { 
             width: 100vw; 
             height: 100vh; 
@@ -39,12 +38,13 @@
             object-fit: cover;
         }
 
-        /* UI Overlay */
         #ui-layer {
             position: absolute;
             top: 20px;
             left: 20px;
             width: 320px;
+            max-height: 90vh;
+            overflow-y: auto;
             background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(10px);
             padding: 20px;
@@ -57,6 +57,7 @@
 
         h1 { margin: 0 0 15px 0; font-size: 1.2rem; font-weight: 600; color: #fff; border-bottom: 1px solid #444; padding-bottom: 10px; }
         p { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; line-height: 1.4; }
+        h3 { font-size: 0.9rem; color: #4facfe; margin: 15px 0 10px 0; padding-top: 10px; border-top: 1px solid #333; }
 
         .control-group { margin-bottom: 15px; }
         label { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
@@ -113,6 +114,7 @@
         button:disabled { background: #444; color: #888; cursor: not-allowed; }
 
         .ar-btn { background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%); }
+        .reset-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-size: 0.7rem; padding: 8px; }
 
         .status { 
             margin-top: 10px; 
@@ -158,6 +160,13 @@
         }
         .preview-box img { width: 100%; height: 100%; object-fit: cover; }
         .preview-label { font-size: 0.6rem; color: #666; text-align: center; margin-top: 2px;}
+        
+        .smoothing-indicator {
+            font-size: 0.65rem;
+            color: #51cf66;
+            text-align: center;
+            margin-top: 5px;
+        }
     </style>
     
     <script type="importmap">
@@ -191,18 +200,53 @@
             <input type="range" id="depth-slider" min="0" max="3" step="0.1" value="1.0">
         </div>
 
-        <div class="control-group" id="scale-control" style="display:none;">
-            <label>Hat Size (AR Only) <span id="scale-val">0.7</span></label>
-            <input type="range" id="scale-slider" min="0.1" max="2.0" step="0.05" value="0.7">
-        </div>
-
-        <!-- Position Controls (Initially Hidden) -->
-        <div class="control-group" id="position-controls" style="display:none;">
-            <label>Hat Height (Y) <span id="ypos-val">0.45</span></label>
-            <input type="range" id="ypos-slider" min="0.2" max="0.8" step="0.02" value="0.45">
+        <!-- AR Controls (Initially Hidden) -->
+        <div id="ar-controls" style="display:none;">
             
-            <label style="margin-top:10px;">Hat Depth (Z) <span id="zpos-val">-0.10</span></label>
-            <input type="range" id="zpos-slider" min="-0.9" max="0.1" step="0.02" value="-0.1">
+            <h3>📐 Size & Position</h3>
+            
+            <div class="control-group">
+                <label>Hat Size <span id="scale-val">0.7</span></label>
+                <input type="range" id="scale-slider" min="0.1" max="2.0" step="0.05" value="0.7">
+            </div>
+
+            <div class="control-group">
+                <label>Height (Y) <span id="ypos-val">0.45</span></label>
+                <input type="range" id="ypos-slider" min="0.2" max="0.8" step="0.02" value="0.45">
+            </div>
+            
+            <div class="control-group">
+                <label>Depth (Z) <span id="zpos-val">-0.10</span></label>
+                <input type="range" id="zpos-slider" min="-0.9" max="0.1" step="0.02" value="-0.1">
+            </div>
+
+            <h3>🎯 Tilt Adjustment</h3>
+            
+            <div class="control-group">
+                <label>Front/Back Tilt (X) <span id="tiltx-val">0.10</span></label>
+                <input type="range" id="tiltx-slider" min="-0.5" max="0.5" step="0.02" value="0.1">
+            </div>
+
+            <div class="control-group">
+                <label>Left/Right Tilt (Z) <span id="tiltz-val">0.00</span></label>
+                <input type="range" id="tiltz-slider" min="-0.5" max="0.5" step="0.02" value="0">
+            </div>
+
+            <h3>🧈 Smoothing (Anti-Jitter)</h3>
+            
+            <div class="control-group">
+                <label>Position Smoothing <span id="smooth-pos-val">0.15</span></label>
+                <input type="range" id="smooth-pos-slider" min="0.01" max="0.5" step="0.01" value="0.15">
+            </div>
+
+            <div class="control-group">
+                <label>Rotation Smoothing <span id="smooth-rot-val">0.10</span></label>
+                <input type="range" id="smooth-rot-slider" min="0.01" max="0.5" step="0.01" value="0.10">
+            </div>
+            
+            <div class="smoothing-indicator">Lower = Smoother (more lag) | Higher = Responsive (more jitter)</div>
+
+            <button id="reset-btn" class="reset-btn">↺ Reset All to Defaults</button>
         </div>
 
         <div id="status-msg" class="status"></div>
@@ -223,9 +267,7 @@
         </div>
     </div>
 
-    <!-- Main 3D Viewer -->
     <div id="canvas-container"></div>
-    <!-- AR Container -->
     <div id="ar-container"></div>
 
     <script type="module">
@@ -234,7 +276,6 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { MindARThree } from 'mindar-face-three';
 
-        // --- CONFIGURATION ---
         const apiKey = ""; 
         
         // --- GLOBALS ---
@@ -249,28 +290,47 @@
         let animationFrameId = null;
         let headOccluder = null;
 
+        // --- SMOOTHING SYSTEM ---
+        // The hat attaches to smoothedContainer, which interpolates toward anchorTarget
+        let smoothedContainer = null;  // The "shock absorber" container
+        let anchorTarget = {           // Where the anchor actually is (raw tracked data)
+            position: new THREE.Vector3(),
+            quaternion: new THREE.Quaternion(),
+            scale: new THREE.Vector3(1, 1, 1)
+        };
+        let smoothingParams = {
+            positionFactor: 0.15,  // Lower = smoother, higher = more responsive
+            rotationFactor: 0.10
+        };
+
+        // --- HAT TRANSFORM OFFSETS (user-adjustable) ---
+        let hatOffsets = {
+            x: 0,
+            y: 0.45,
+            z: -0.1,
+            tiltX: 0.1,  // Front/back tilt
+            tiltY: 0,     // Left/right rotation (yaw) - keeping fixed
+            tiltZ: 0,     // Left/right tilt (roll)
+            scale: 0.7
+        };
 
         // --- DOM ELEMENTS ---
         const studioContainer = document.getElementById('canvas-container');
         const arContainer = document.getElementById('ar-container');
         const arBtn = document.getElementById('ar-btn');
         const generateBtn = document.getElementById('generate-btn');
-        const scaleControl = document.getElementById('scale-control');
-        const positionControls = document.getElementById('position-controls');
+        const arControls = document.getElementById('ar-controls');
         const statusMsg = document.getElementById('status-msg');
 
-        // --- INITIALIZATION (Studio Mode) ---
+        // --- INITIALIZATION ---
         function init() {
-            // 1. Scene Setup
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x111111);
             scene.fog = new THREE.Fog(0x111111, 8, 25);
 
-            // 2. Camera Setup
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, 1, 6);
 
-            // 3. Renderer Setup
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -279,7 +339,6 @@
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             studioContainer.appendChild(renderer.domElement);
 
-            // 4. Controls
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
@@ -287,25 +346,37 @@
             controls.maxDistance = 10;
             controls.target.set(0, 0, 0);
 
-            // 5. Lighting
             setupLighting(scene);
-
-            // 6. Create Objects
             createSharedMaterial();
             createHat();
             createMannequin();
 
-            // 7. Event Listeners
+            // Event Listeners
             window.addEventListener('resize', onWindowResize);
             
-            document.getElementById('ypos-slider').addEventListener('input', updateHatPosition);
-            document.getElementById('zpos-slider').addEventListener('input', updateHatPosition);
+            // Material controls
             generateBtn.addEventListener('click', generateTexture);
-            arBtn.addEventListener('click', toggleAR);
             document.getElementById('depth-slider').addEventListener('input', updateMaterialSettings);
-            document.getElementById('scale-slider').addEventListener('input', updateHatScale);
+            
+            // AR toggle
+            arBtn.addEventListener('click', toggleAR);
+            
+            // Position controls
+            document.getElementById('ypos-slider').addEventListener('input', updateHatOffsets);
+            document.getElementById('zpos-slider').addEventListener('input', updateHatOffsets);
+            document.getElementById('scale-slider').addEventListener('input', updateHatOffsets);
+            
+            // Tilt controls
+            document.getElementById('tiltx-slider').addEventListener('input', updateHatOffsets);
+            document.getElementById('tiltz-slider').addEventListener('input', updateHatOffsets);
+            
+            // Smoothing controls
+            document.getElementById('smooth-pos-slider').addEventListener('input', updateSmoothingParams);
+            document.getElementById('smooth-rot-slider').addEventListener('input', updateSmoothingParams);
+            
+            // Reset button
+            document.getElementById('reset-btn').addEventListener('click', resetToDefaults);
 
-            // Remove loading overlay
             setTimeout(() => {
                 const overlay = document.getElementById('loading-overlay');
                 if(overlay) {
@@ -314,7 +385,6 @@
                 }
             }, 500);
 
-            // Start Loop
             animate();
         }
 
@@ -347,14 +417,12 @@
             hatGroup = new THREE.Group();
             hatGroup.name = 'HatGroup';
 
-            // Dome
             const domeGeo = new THREE.SphereGeometry(1.05, 64, 32, 0, Math.PI * 2, 0, Math.PI * 0.5);
             const dome = new THREE.Mesh(domeGeo, hatMaterial);
             dome.castShadow = true;
             dome.receiveShadow = true;
             hatGroup.add(dome);
 
-            // Rim
             const rimGeo = new THREE.TorusGeometry(1.05, 0.1, 16, 64);
             const rim = new THREE.Mesh(rimGeo, hatMaterial);
             rim.rotation.x = Math.PI / 2;
@@ -362,14 +430,12 @@
             rim.receiveShadow = true;
             hatGroup.add(rim);
             
-            // Visor Details
             const visorGeo = new THREE.CylinderGeometry(1.1, 1.1, 0.3, 32, 1, true, 0, Math.PI);
             const visor = new THREE.Mesh(visorGeo, hatMaterial);
             visor.position.y = 0.1;
             visor.rotation.y = -Math.PI / 2;
             hatGroup.add(visor);
 
-            // Initial positioning for Mannequin
             hatGroup.position.y = 0.2;
             hatGroup.rotation.x = -0.1;
         }
@@ -417,7 +483,6 @@
                 statusMsg.className = "status loading";
                 statusMsg.innerText = "Loading face model...";
 
-                // Show AR container BEFORE initializing
                 arContainer.style.display = 'block';
                 studioContainer.style.display = 'none';
                 
@@ -428,7 +493,7 @@
                     animationFrameId = null;
                 }
 
-                // Initialize MindAR
+                // Initialize MindAR with aggressive filtering
                 mindarThree = new MindARThree({
                     container: arContainer,
                     filterMinCF: 0.0001,
@@ -445,20 +510,29 @@
                 dirLight.position.set(0, 1, 1);
                 arScene.add(dirLight);
                 
-                // Back light for rim effect
                 const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
                 backLight.position.set(0, 0, -1);
                 arScene.add(backLight);
 
-                // Use anchor 168 (nose bridge / head center)
+                // Anchor 168 = nose bridge / head center
                 arAnchor = mindarThree.addAnchor(168);
                 
+                // === CREATE SMOOTHING CONTAINER ===
+                // This sits in the scene and smoothly follows the anchor
+                smoothedContainer = new THREE.Group();
+                smoothedContainer.name = 'SmoothedContainer';
+                arScene.add(smoothedContainer);
+                
+                // Initialize target position/rotation/scale
+                anchorTarget.position.set(0, 0, 0);
+                anchorTarget.quaternion.identity();
+                anchorTarget.scale.set(1, 1, 1);
+
                 // === LOAD OFFICIAL HEAD OCCLUDER MODEL ===
                 statusMsg.innerText = "Loading head occluder...";
                 
                 const gltfLoader = new GLTFLoader();
                 
-                // Load official MindAR head occluder
                 headOccluder = await new Promise((resolve, reject) => {
                     gltfLoader.load(
                         'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/face-tracking/assets/sparkar/headOccluder.glb',
@@ -468,24 +542,23 @@
                     );
                 });
                 
-                // Configure occluder material
                 headOccluder.traverse((node) => {
                     if (node.isMesh) {
                         node.material = new THREE.MeshBasicMaterial({
-                            colorWrite: false,      // Don't write to color buffer
-                            depthWrite: true,       // Write to depth buffer
+                            colorWrite: false,
+                            depthWrite: true,
                             depthTest: true,
                             side: THREE.DoubleSide
                         });
-                        node.renderOrder = -1;      // Render before other objects
+                        node.renderOrder = -1;
                     }
                 });
                 
-                // Position occluder
                 headOccluder.position.set(0, -0.3, 0.15);
                 headOccluder.rotation.set(0, 0, 0);
                 headOccluder.scale.set(0.065, 0.065, 0.065);
                 
+                // Occluder stays on raw anchor (it needs to be precise)
                 arAnchor.group.add(headOccluder);
                 
                 // === FACE TRACKING EVENTS ===
@@ -509,31 +582,47 @@
                 statusMsg.innerText = "Starting camera...";
                 await mindarThree.start();
                 
-                // Move hat from mannequin to AR anchor
+                // Move hat from mannequin to SMOOTHED container (not raw anchor!)
                 hatGroup.removeFromParent();
-                arAnchor.group.add(hatGroup);
+                smoothedContainer.add(hatGroup);
                 
-                // === OPTIMIZED HAT POSITIONING ===
-                hatGroup.position.set(0, 0.45, -0.1);
-                hatGroup.rotation.set(0.1, 0, 0); 
-                
-                updateHatScale();
+                // Apply initial offsets
+                applyHatOffsets();
 
-                // Start AR render loop
+                // === AR RENDER LOOP WITH SMOOTHING ===
                 arRenderer.setAnimationLoop(() => {
+                    // 1. Get raw anchor world position/quaternion/scale
+                    arAnchor.group.getWorldPosition(anchorTarget.position);
+                    arAnchor.group.getWorldQuaternion(anchorTarget.quaternion);
+                    arAnchor.group.getWorldScale(anchorTarget.scale);
+                    
+                    // 2. Smoothly interpolate container toward target
+                    smoothedContainer.position.lerp(
+                        anchorTarget.position, 
+                        smoothingParams.positionFactor
+                    );
+                    smoothedContainer.quaternion.slerp(
+                        anchorTarget.quaternion, 
+                        smoothingParams.rotationFactor
+                    );
+                    smoothedContainer.scale.lerp(
+                        anchorTarget.scale,
+                        smoothingParams.positionFactor
+                    );
+                    
+                    // 3. Render
                     arRenderer.render(arScene, arCamera);
                 });
 
                 isARMode = true;
                 
-                // --- SHOW UI CONTROLS ---
-                scaleControl.style.display = 'block';
-                positionControls.style.display = 'block'; // FIXED: Now showing position controls
+                // Show AR controls
+                arControls.style.display = 'block';
                 
                 arBtn.innerText = "❌ Stop Camera";
                 arBtn.disabled = false;
                 statusMsg.className = "status success";
-                statusMsg.innerText = "Hat fitted! Adjust size with slider.";
+                statusMsg.innerText = "Hat fitted! Adjust with sliders.";
 
             } catch (err) {
                 console.error("AR Error:", err);
@@ -572,6 +661,11 @@
                 headOccluder = null;
             }
             
+            if (smoothedContainer) {
+                smoothedContainer.removeFromParent();
+                smoothedContainer = null;
+            }
+            
             // Move hat back to mannequin
             hatGroup.removeFromParent();
             mannequinGroup.add(hatGroup);
@@ -582,13 +676,10 @@
             hatGroup.rotation.set(-0.1, 0, 0);
             hatGroup.visible = true;
 
-            // Switch UI
             arContainer.style.display = 'none';
             studioContainer.style.display = 'block';
             
-            // --- HIDE UI CONTROLS ---
-            scaleControl.style.display = 'none';
-            positionControls.style.display = 'none'; // FIXED: Now hiding position controls
+            arControls.style.display = 'none';
             
             arBtn.innerText = "📷 Wear Hat (AR)";
             statusMsg.className = "status";
@@ -600,31 +691,72 @@
             animate();
         }
 
-        function updateHatPosition() {
-            if (!isARMode || !hatGroup) return;
+        // --- UI UPDATE FUNCTIONS ---
+        
+        function updateHatOffsets() {
+            // Read all slider values
+            hatOffsets.y = parseFloat(document.getElementById('ypos-slider').value);
+            hatOffsets.z = parseFloat(document.getElementById('zpos-slider').value);
+            hatOffsets.scale = parseFloat(document.getElementById('scale-slider').value);
+            hatOffsets.tiltX = parseFloat(document.getElementById('tiltx-slider').value);
+            hatOffsets.tiltZ = parseFloat(document.getElementById('tiltz-slider').value);
             
-            const y = parseFloat(document.getElementById('ypos-slider').value);
-            const z = parseFloat(document.getElementById('zpos-slider').value);
+            // Update display values
+            document.getElementById('ypos-val').innerText = hatOffsets.y.toFixed(2);
+            document.getElementById('zpos-val').innerText = hatOffsets.z.toFixed(2);
+            document.getElementById('scale-val').innerText = hatOffsets.scale.toFixed(2);
+            document.getElementById('tiltx-val').innerText = hatOffsets.tiltX.toFixed(2);
+            document.getElementById('tiltz-val').innerText = hatOffsets.tiltZ.toFixed(2);
             
-            document.getElementById('ypos-val').innerText = y.toFixed(2);
-            document.getElementById('zpos-val').innerText = z.toFixed(2);
-            
-            hatGroup.position.y = y;
-            hatGroup.position.z = z;
-        }
-
-        function updateHatScale() {
-            const slider = document.getElementById('scale-slider');
-            const s = parseFloat(slider.value);
-            document.getElementById('scale-val').innerText = s.toFixed(2);
-            
+            // Apply to hat if in AR mode
             if (isARMode && hatGroup) {
-                hatGroup.scale.set(s, s, s);
-                // Adjust Y position based on scale
-                const baseY = 0.45;
-                const yOffset = (s - 0.7) * 0.15;
-                hatGroup.position.y = baseY + yOffset;
+                applyHatOffsets();
             }
+        }
+        
+        function applyHatOffsets() {
+            if (!hatGroup) return;
+            
+            // Position (relative to smoothed container)
+            hatGroup.position.set(hatOffsets.x, hatOffsets.y, hatOffsets.z);
+            
+            // Rotation: X = front/back tilt, Z = left/right tilt
+            hatGroup.rotation.set(hatOffsets.tiltX, hatOffsets.tiltY, hatOffsets.tiltZ);
+            
+            // Scale with Y-offset compensation
+            const s = hatOffsets.scale;
+            hatGroup.scale.set(s, s, s);
+            
+            // Adjust Y based on scale change (larger hat sits higher)
+            const baseY = 0.45;
+            const yOffset = (s - 0.7) * 0.15;
+            hatGroup.position.y = hatOffsets.y + yOffset;
+        }
+        
+        function updateSmoothingParams() {
+            smoothingParams.positionFactor = parseFloat(document.getElementById('smooth-pos-slider').value);
+            smoothingParams.rotationFactor = parseFloat(document.getElementById('smooth-rot-slider').value);
+            
+            document.getElementById('smooth-pos-val').innerText = smoothingParams.positionFactor.toFixed(2);
+            document.getElementById('smooth-rot-val').innerText = smoothingParams.rotationFactor.toFixed(2);
+        }
+        
+        function resetToDefaults() {
+            // Reset all sliders to default values
+            document.getElementById('ypos-slider').value = 0.45;
+            document.getElementById('zpos-slider').value = -0.1;
+            document.getElementById('scale-slider').value = 0.7;
+            document.getElementById('tiltx-slider').value = 0.1;
+            document.getElementById('tiltz-slider').value = 0;
+            document.getElementById('smooth-pos-slider').value = 0.15;
+            document.getElementById('smooth-rot-slider').value = 0.10;
+            
+            // Trigger updates
+            updateHatOffsets();
+            updateSmoothingParams();
+            
+            statusMsg.className = "status success";
+            statusMsg.innerText = "Reset to defaults!";
         }
 
         // --- TEXTURE GENERATION ---
@@ -817,5 +949,6 @@
 
         init();
     </script>
+
 </body>
 </html>
