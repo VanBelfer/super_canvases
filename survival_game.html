@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced World Builder - Smooth Terrain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Fredoka', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #98D8E8);
+        }
+        canvas { display: block; }
+        .ui-panel {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(240,240,255,0.9));
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.8);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        #crosshair {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 4px; height: 4px; background: white; border-radius: 50%;
+            mix-blend-mode: difference; transition: all 0.2s ease;
+        }
+        #crosshair.active { background: #00ff00; transform: translate(-50%, -50%) scale(2); box-shadow: 0 0 10px #00ff00; }
+        .stat-bar { height: 24px; background: rgba(0,0,0,0.3); border-radius: 12px; overflow: hidden; position: relative; }
+        .stat-bar-fill { height: 100%; transition: width 0.3s ease, background 0.3s ease; border-radius: 12px; position: relative; overflow: hidden; }
+        .stat-bar-fill::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%); }
+        .health-fill { background: linear-gradient(90deg, #ff4444, #ff6666); }
+        .stamina-fill { background: linear-gradient(90deg, #44ff44, #66ff66); }
+        .inventory-slot {
+            width: 60px; height: 60px; background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+            border: 3px solid #999; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden;
+        }
+        .inventory-slot:hover { transform: scale(1.1); border-color: #fff; box-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        .inventory-slot.active { background: linear-gradient(135deg, #4CAF50, #45a049); border-color: #fff; box-shadow: 0 0 20px rgba(76, 175, 80, 0.6); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        .inventory-icon { font-size: 32px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3)); }
+        .inventory-count { position: absolute; bottom: 2px; right: 4px; background: rgba(0,0,0,0.7); color: white; padding: 2px 4px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        #notification-container { position: fixed; top: 120px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+        .notification { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 15px 25px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); animation: notificationSlide 0.5s ease-out, fadeOut 0.5s ease-out 4.5s forwards; font-weight: 600; }
+        @keyframes notificationSlide { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateX(400px); } }
+        #loading-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.5s ease; }
+        .loading-spinner { width: 80px; height: 80px; border: 8px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #kiln-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; width: 400px; }
+        .progress-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #ff6600, #ff8800); border-radius: 4px; transition: width 0.3s ease; }
+        .kiln-slot { width: 80px; height: 80px; border: 3px solid #666; border-radius: 8px; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .kiln-slot.filled { background: rgba(100,100,100,0.3); border-color: #333; }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loading-spinner"></div>
+        <h1 class="text-white text-4xl font-bold mt-8">Loading World...</h1>
+        <p class="text-white/80 mt-2">Generating procedural terrain</p>
+    </div>
+    <div id="hud" class="fixed inset-0 pointer-events-none">
+        <div id="crosshair"></div>
+        <div id="notification-container"></div>
+        <div class="ui-panel absolute top-5 left-5 p-4 rounded-xl pointer-events-auto flex items-start gap-3">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800 mb-3">Builder 3D - Smooth Hills</h2>
+                <div class="mb-2">
+                    <div class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-gray-700">Health</span><span id="health-text" class="text-sm font-bold text-red-500">100/100</span></div>
+                    <div class="stat-bar"><div id="health-bar" class="stat-bar-fill health-fill" style="width: 100%"></div></div>
+                </div>
+                <div class="mb-3">
+                    <div class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-gray-700">Stamina</span><span id="stamina-text" class="text-sm font-bold text-green-500">100/100</span></div>
+                    <div class="stat-bar"><div id="stamina-bar" class="stat-bar-fill stamina-fill" style="width: 100%"></div></div>
+                </div>
+                <div class="text-xs text-gray-600 space-y-1">
+                    <p>WASD: Move | Space: Jump | Shift: Sprint</p>
+                    <p>F/Click: Use Item | 1-6: Switch Hotbar</p>
+                    <p>C: Craft Brick | E: Use Station</p>
+                </div>
+            </div>
+            <button id="settings-toggle" class="text-2xl hover:bg-black/10 rounded-full p-2 transition-colors">⚙️</button>
+        </div>
+        <div id="settings-panel" class="ui-panel absolute top-5 left-5 mt-64 p-4 rounded-xl pointer-events-auto hidden">
+            <h3 class="font-bold text-gray-800 mb-2">World Settings</h3>
+            <div id="loader" class="text-sm text-blue-600 font-semibold my-2 hidden animate-pulse">Generating Texture...</div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button id="gen-grass" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Grass</button>
+                <button id="gen-wood" class="bg-yellow-700 hover:bg-yellow-800 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Wood</button>
+                <button id="gen-stone" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Stone</button>
+                <button id="gen-brick" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Brick</button>
+            </div>
+            <h4 class="font-bold text-gray-800 mb-2 text-sm">AI Tool Enhancement</h4>
+            <div class="grid grid-cols-1 gap-2 mb-2">
+                <button id="gen-realistic-axe" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Generate Realistic Axe</button>
+                <button id="gen-realistic-pickaxe" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Generate Realistic Pickaxe</button>
+            </div>
+            <h4 class="font-bold text-gray-800 mb-2 text-sm">Tool Textures</h4>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button id="gen-handle" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Handle</button>
+                <button id="gen-axe-blade" class="bg-slate-400 hover:bg-slate-500 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Axe Blade</button>
+                <button id="gen-pick-head" class="bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">Pick Head</button>
+                <button id="gen-all-tools" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors">All Tools</button>
+            </div>
+            <button id="craft-brick" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-colors w-full mb-3">Craft Brick ×5</button>
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-semibold text-gray-700">Live Textures</span>
+                <input type="checkbox" id="live-textures-toggle" class="toggle-checkbox">
+            </div>
+        </div>
+        <div id="build-controls" class="absolute top-1/2 right-5 -translate-y-1/2 ui-panel p-4 rounded-xl space-y-3 pointer-events-auto hidden">
+            <h3 class="font-bold text-gray-800 text-center">Build Mode</h3>
+            <p class="text-sm text-gray-600">Selected: <span id="selected-block-text" class="font-bold">Wood</span></p>
+            <div class="text-xs text-gray-500">Scroll to change block type</div>
+        </div>
+        <div class="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-auto">
+            <div class="ui-panel p-3 rounded-xl">
+                <div class="flex gap-2" id="hotbar">
+                    <div class="inventory-slot active" data-slot="0" data-item="pickaxe"><span class="inventory-icon">⛏️</span></div>
+                    <div class="inventory-slot" data-slot="1" data-item="axe"><span class="inventory-icon">🪓</span></div>
+                    <div class="inventory-slot" data-slot="2" data-item="wood"><span class="inventory-icon">🪵</span><span class="inventory-count" id="inv-wood">0</span></div>
+                    <div class="inventory-slot" data-slot="3" data-item="stone"><span class="inventory-icon">🗿</span><span class="inventory-count" id="inv-stone">0</span></div>
+                    <div class="inventory-slot" data-slot="4" data-item="clay"><span class="inventory-icon">🟫</span><span class="inventory-count" id="inv-clay">0</span></div>
+                    <div class="inventory-slot" data-slot="5" data-item="brick"><span class="inventory-icon">🧱</span><span class="inventory-count" id="inv-brick">0</span></div>
+                </div>
+            </div>
+        </div>
+        <!-- Kiln Interface -->
+        <div id="kiln-panel" class="ui-panel rounded-xl p-6 pointer-events-auto hidden">
+            <h3 class="font-bold text-gray-800 mb-4 text-center">Clay Kiln</h3>
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Clay Input</p>
+                    <div id="kiln-clay-slot" class="kiln-slot mx-auto relative">
+                        <span class="text-2xl">🟫</span>
+                        <span id="kiln-clay-count" class="absolute bottom-1 right-1 text-xs bg-black/70 text-white px-1 rounded">0</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Fuel (Wood)</p>
+                    <div id="kiln-fuel-slot" class="kiln-slot mx-auto relative">
+                        <span class="text-2xl">🪵</span>
+                        <span id="kiln-fuel-count" class="absolute bottom-1 right-1 text-xs bg-black/70 text-white px-1 rounded">0</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Brick Output</p>
+                    <div id="kiln-output-slot" class="kiln-slot mx-auto relative">
+                        <span class="text-2xl">🧱</span>
+                        <span id="kiln-output-count" class="absolute bottom-1 right-1 text-xs bg-black/70 text-white px-1 rounded">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-semibold text-gray-700">Smelting Progress</span>
+                    <span id="kiln-timer" class="text-sm text-gray-600">0:00</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="kiln-progress" class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button id="kiln-start" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm flex-1">Start Smelting</button>
+                <button id="kiln-close" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm flex-1">Close</button>
+            </div>
+        </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+         { "imports": {
+         "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js",
+         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/",
+         "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+         } }
+    </script>
+    <script type="module">
+import * as THREE from 'three';
+import { Sky } from 'three/addons/objects/Sky.js';
+import * as CANNON from 'cannon-es';
+
+// --- CONFIGURATIONS ---
+const GAME_CONFIG = {
+ player: { speed: 16, sprintSpeed: 32, jumpForce: 12, mouseSensitivity: 0.002 },
+ world: { gravity: -20, size: 200, segments: 20 }, // Physics segments
+ build: { gridSize: 2, reach: 10 },
+ kiln: { smeltTime: 15, clayPerBrick: 2, fuelPerBrick: 1 }
+};
+
+const STEP_UP_CONFIG = {
+    maxHeight: 2.5,
+    minHeight: 0.1,
+    forwardDistance: 0.8,
+    playerRadius: 0.5,
+    verticalBoost: 1.5,
+    stepUpSpeed: 8,
+    cameraSmoothing: 0.15,
+    movementSmoothing: 0.8,
+    airControlSmoothing: 0.05
+};
+
+const gameState = {
+ health: 100, maxHealth: 100, stamina: 100, maxStamina: 100,
+ buildMode: false, selectedBlockType: 'wood',
+ inventory: { wood: 50, stone: 25, clay: 20, brick: 5 },
+ activeSlot: 0,
+ liveTextures: false,
+ kilnOpen: false,
+ activeKiln: null
+};
+
+// --- GLOBAL VARIABLES & STATE ---
+let scene, camera, renderer, physicsWorld, clock, player, uiManager, game;
+const interactiveObjects = new Map();
+const keys = {};
+
+// --- SMOOTH MOVEMENT ENGINE STATE ---
+let grounded = false;
+let lastGroundTime = 0;
+let stepUpTarget = null;
+let stepUpProgress = 0;
+let currentStepDirection = null;
+
+// --- SHARED FUNCTIONS ---
+
+function getHeightAt(x, z) {
+    let height = 0;
+    height += Math.sin(x * 0.02) * Math.cos(z * 0.02) * 8;
+    height += Math.sin(x * 0.04) * Math.cos(z * 0.04) * 4;
+    height += Math.sin(x * 0.08) * Math.cos(z * 0.08) * 2;
+    return height;
+}
+
+const Easing = {
+    easeOutCubic: (t) => 1 - Math.pow(1 - t, 3),
+};
+
+function checkGrounded() {
+    const rayLength = STEP_UP_CONFIG.playerRadius + 0.3;
+    const from = player.body.position;
+    const to = new CANNON.Vec3(from.x, from.y - rayLength, from.z);
+    
+    const result = new CANNON.RaycastResult();
+    const hit = physicsWorld.raycastClosest(from, to, { skipBackfaces: true }, result);
+    
+    if (hit && result.body !== player.body && result.distance <= rayLength && result.hitNormalWorld.y > 0.5) {
+        grounded = true;
+        lastGroundTime = performance.now();
+        return;
+    }
+    
+    if (performance.now() - lastGroundTime > 200) {
+        grounded = false;
+    }
+}
+
+function attemptStepUp(movementDirection) {
+    if (stepUpTarget || !grounded || movementDirection.length() === 0) {
+        return false;
+    }
+    
+    const from = new CANNON.Vec3(player.body.position.x, player.body.position.y - STEP_UP_CONFIG.playerRadius + 0.1, player.body.position.z);
+    const to = new CANNON.Vec3(from.x + movementDirection.x * STEP_UP_CONFIG.forwardDistance, from.y, from.z + movementDirection.z * STEP_UP_CONFIG.forwardDistance);
+    
+    const forwardResult = new CANNON.RaycastResult();
+    if (!physicsWorld.raycastClosest(from, to, { skipBackfaces: true }, forwardResult) || forwardResult.body === player.body) {
+        return false;
+    }
+
+    const stepCheckFrom = new CANNON.Vec3(forwardResult.hitPointWorld.x, forwardResult.hitPointWorld.y + STEP_UP_CONFIG.maxHeight, forwardResult.hitPointWorld.z);
+    const stepCheckTo = new CANNON.Vec3(stepCheckFrom.x, stepCheckFrom.y - STEP_UP_CONFIG.maxHeight - 1, stepCheckFrom.z);
+    
+    const stepResult = new CANNON.RaycastResult();
+    if (!physicsWorld.raycastClosest(stepCheckFrom, stepCheckTo, { skipBackfaces: true }, stepResult) || stepResult.body === player.body) {
+        return false;
+    }
+    
+    const stepHeight = stepResult.hitPointWorld.y - (player.body.position.y - STEP_UP_CONFIG.playerRadius);
+    
+    if (stepHeight <= STEP_UP_CONFIG.minHeight || stepHeight > STEP_UP_CONFIG.maxHeight) {
+        return false;
+    }
+    
+    stepUpTarget = {
+        y: stepResult.hitPointWorld.y + STEP_UP_CONFIG.playerRadius + 0.1,
+        startY: player.body.position.y,
+    };
+    stepUpProgress = 0;
+    currentStepDirection = movementDirection.clone();
+    player.body.velocity.y = Math.max(player.body.velocity.y, STEP_UP_CONFIG.verticalBoost);
+    
+    return true;
+}
+
+function processStepUp(deltaTime) {
+    if (!stepUpTarget) return;
+
+    stepUpProgress += deltaTime * STEP_UP_CONFIG.stepUpSpeed;
+    
+    if (stepUpProgress >= 1) {
+        player.body.position.y = stepUpTarget.y;
+        stepUpTarget = null;
+        stepUpProgress = 0;
+        currentStepDirection = null;
+    } else {
+        const t = Easing.easeOutCubic(stepUpProgress);
+        player.body.position.y = THREE.MathUtils.lerp(stepUpTarget.startY, stepUpTarget.y, t);
+        
+        if (currentStepDirection) {
+            const forwardPush = currentStepDirection.clone().multiplyScalar(GAME_CONFIG.player.speed * 0.7);
+            player.body.velocity.x = THREE.MathUtils.lerp(player.body.velocity.x, forwardPush.x, 0.3);
+            player.body.velocity.z = THREE.MathUtils.lerp(player.body.velocity.z, forwardPush.z, 0.3);
+        }
+    }
+}
+
+
+const materials = {
+ tree: {
+  trunk: new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8 }),
+  leaves: new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.7 })
+},
+ stoneNode: new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.6 }),
+ clayNode: new THREE.MeshStandardMaterial({ color: 0x8B4A2B, roughness: 0.7 }),
+ kiln: new THREE.MeshStandardMaterial({ color: 0x654321, roughness: 0.8 }),
+ blocks: {
+  wood: new THREE.MeshStandardMaterial({ color: 0x8B4513 }),
+  stone: new THREE.MeshStandardMaterial({ color: 0x808080 }),
+  clay: new THREE.MeshStandardMaterial({ color: 0x8B4A2B }),
+  brick: new THREE.MeshStandardMaterial({ color: 0xB22222 }),
+  kiln: new THREE.MeshStandardMaterial({ color: 0x654321 })
+},
+ tools: {
+  handle: new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8, metalness: 0.1 }),
+  axeBlade: new THREE.MeshStandardMaterial({ color: 0xC0C0C0, roughness: 0.3, metalness: 0.8 }),
+  pickaxeHead: new THREE.MeshStandardMaterial({ color: 0x404040, roughness: 0.4, metalness: 0.9 })
+}
+};
+
+const geometries = {
+ block: new THREE.BoxGeometry(GAME_CONFIG.build.gridSize, GAME_CONFIG.build.gridSize, GAME_CONFIG.build.gridSize)
+};
+
+ document.addEventListener('keydown', (e) => {
+     keys[e.code] = true;
+    if (e.code.startsWith('Digit')) {
+        const slot = parseInt(e.code.replace('Digit', '')) - 1;
+        if (slot >= 0 && slot < 6) {
+             gameState.activeSlot = slot;
+            if (player) player.updateHeldTool();
+        }
+    }
+    if (e.code === 'KeyF' && player) player.handleAction();
+    if (e.code === 'KeyC' && uiManager) uiManager.craftBricks(1);
+    if (e.code === 'KeyE' && player) player.handleStation();
+});
+
+ document.addEventListener('keyup', (e) => {
+     keys[e.code] = false;
+});
+
+class Game {
+    constructor() {
+         game = this;
+        this.bodiesToRemove = [];
+        this.initEngine();
+        this.initEnvironment();
+        this.initWorld();
+        this.initUI();
+        this.initPlayer();
+        this.startGame();
+    }
+
+     initEngine() {
+         scene = new THREE.Scene();
+         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+         renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#gameCanvas'), antialias: true });
+         renderer.setPixelRatio(window.devicePixelRatio);
+         renderer.setSize(window.innerWidth, window.innerHeight);
+         renderer.shadowMap.enabled = true;
+         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+         renderer.toneMapping = THREE.ACESFilmicToneMapping;
+         renderer.toneMappingExposure = 0.6;
+
+         physicsWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, GAME_CONFIG.world.gravity, 0) });
+         physicsWorld.broadphase = new CANNON.SAPBroadphase(physicsWorld);
+         physicsWorld.allowSleep = true;
+         physicsWorld.solver.iterations = 12;
+         physicsWorld.solver.tolerance = 0.001;
+
+        this.matGround = new CANNON.Material('ground');
+        this.matPlayer = new CANNON.Material('player');
+        this.matBlock = new CANNON.Material('block');
+
+         physicsWorld.addContactMaterial(new CANNON.ContactMaterial(this.matPlayer, this.matGround, { friction: 0.1, restitution: 0.0 }));
+         physicsWorld.addContactMaterial(new CANNON.ContactMaterial(this.matPlayer, this.matBlock, { friction: 0.6, restitution: 0.0 }));
+         physicsWorld.addContactMaterial(new CANNON.ContactMaterial(this.matBlock, this.matGround, { friction: 0.7, restitution: 0.0 }));
+         clock = new THREE.Clock();
+         window.addEventListener('resize', this.onWindowResize);
+    }
+
+     initEnvironment() {
+        const sky = new Sky();
+         sky.scale.setScalar(10000);
+         scene.add(sky);
+
+        const sun = new THREE.Vector3();
+        const skyUniforms = sky.material.uniforms;
+         skyUniforms['turbidity'].value = 10;
+         skyUniforms['rayleigh'].value = 2;
+         skyUniforms['mieCoefficient'].value = 0.005;
+         skyUniforms['mieDirectionalG'].value = 0.8;
+        
+        this.updateSun = () => {
+            const elapsedTime = clock.getElapsedTime();
+            const phi = THREE.MathUtils.degToRad(90 - (30 + Math.sin(elapsedTime * 0.05) * 25));
+            const theta = THREE.MathUtils.degToRad(180 + elapsedTime * 2);
+             sun.setFromSphericalCoords(1, phi, theta);
+             sky.material.uniforms['sunPosition'].value.copy(sun);
+        };
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+         scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+         directionalLight.position.set(50, 100, 50);
+         directionalLight.castShadow = true;
+         directionalLight.shadow.mapSize.width = 2048;
+         directionalLight.shadow.mapSize.height = 2048;
+         scene.add(directionalLight);
+    }
+
+     initWorld() {
+        const visualTerrain = this.createVisualTerrain();
+        this.createPhysicsTerrain();
+        
+        visualTerrain.updateMatrixWorld(true);
+        this.spawnResources(visualTerrain);
+    }
+    
+    createVisualTerrain() {
+        const size = GAME_CONFIG.world.size;
+        const segments = 100;
+        
+        const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+        const vertices = geometry.attributes.position.array;
+        
+        for (let i = 0; i < vertices.length; i += 3) {
+            vertices[i + 2] = getHeightAt(vertices[i], vertices[i + 1]);
+        }
+        
+        geometry.rotateX(-Math.PI / 2);
+        geometry.computeVertexNormals();
+        
+        const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+        
+        const colors = [];
+        const positionAttribute = geometry.attributes.position;
+        for (let i = 0; i < positionAttribute.count; i++) {
+            const y = positionAttribute.getY(i);
+            const normalizedHeight = (y + 10) / 20;
+            const color = new THREE.Color();
+            color.setHSL(0.25, 0.7, 0.3 + normalizedHeight * 0.4);
+            colors.push(color.r, color.g, color.b);
+        }
+        
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        
+        const terrainMesh = new THREE.Mesh(geometry, material);
+        terrainMesh.receiveShadow = true;
+        scene.add(terrainMesh);
+        
+        return terrainMesh;
+    }
+
+    createPhysicsTerrain() {
+        const size = GAME_CONFIG.world.size;
+        const segments = GAME_CONFIG.world.segments;
+        const boxSize = size / segments;
+        
+        for (let x = 0; x < segments; x++) {
+            for (let z = 0; z < segments; z++) {
+                const worldX = (x - segments/2) * boxSize + boxSize/2;
+                const worldZ = (z - segments/2) * boxSize + boxSize/2;
+                const height = getHeightAt(worldX, worldZ);
+                
+                const boxShape = new CANNON.Box(new CANNON.Vec3(boxSize/2, (Math.abs(height) + 5)/2, boxSize/2));
+                const boxBody = new CANNON.Body({ 
+                    mass: 0,
+                    shape: boxShape,
+                    position: new CANNON.Vec3(worldX, height/2 - 2.5, worldZ),
+                    material: this.matGround
+                });
+                physicsWorld.addBody(boxBody);
+            }
+        }
+    }
+    
+    spawnResources(terrainMesh) {
+        this.addScatteredRocksAndPlatforms(); // For testing steps
+        this.createForest(terrainMesh, new THREE.Vector3(0, 0, -20), 35, 20);
+        this.createBoulderField(terrainMesh, new THREE.Vector3(25, 0, 15), 30, 15);
+        this.createClayDeposit(terrainMesh, new THREE.Vector3(-30, 0, -10), 25, 12);
+        for (let i = 0; i < 25; i++) {
+            const cx = (Math.random() - 0.5) * GAME_CONFIG.world.size * 0.7;
+            const cz = (Math.random() - 0.5) * GAME_CONFIG.world.size * 0.7;
+            const type = Math.random();
+            if (type > 0.66) this.createForest(terrainMesh, new THREE.Vector3(cx, 0, cz), 45, 25);
+            else if (type > 0.33) this.createBoulderField(terrainMesh, new THREE.Vector3(cx, 0, cz), 40, 20);
+            else this.createClayDeposit(terrainMesh, new THREE.Vector3(cx, 0, cz), 35, 18);
+        }
+    }
+
+    addScatteredRocksAndPlatforms() {
+            for (let i = 0; i < 30; i++) {
+                const x = (Math.random() - 0.5) * 180;
+                const z = (Math.random() - 0.5) * 180;
+                const height = getHeightAt(x, z);
+                
+                const rockSize = 0.5 + Math.random() * 1.5;
+                const rockGeometry = new THREE.SphereGeometry(rockSize, 8, 6);
+                const rockMaterial = new THREE.MeshLambertMaterial({ color: new THREE.Color().setHSL(0, 0, 0.2 + Math.random() * 0.3) });
+                const rockMesh = new THREE.Mesh(rockGeometry, rockMaterial);
+                rockMesh.position.set(x, height + rockSize/2, z);
+                rockMesh.castShadow = true;
+                scene.add(rockMesh);
+
+                const rockBody = new CANNON.Body({ mass: 0, shape: new CANNON.Sphere(rockSize), position: new CANNON.Vec3(x, height + rockSize/2, z) });
+                physicsWorld.addBody(rockBody);
+            }
+            for (let i = 0; i < 5; i++) {
+                const x = (Math.random() - 0.5) * 100;
+                const z = (Math.random() - 0.5) * 100;
+                const height = getHeightAt(x, z);
+                const stepHeight = 0.5 + Math.random() * 2;
+                
+                const platformMesh = new THREE.Mesh(new THREE.BoxGeometry(4, stepHeight, 4), new THREE.MeshLambertMaterial({ color: new THREE.Color().setHSL(0.1, 0.3, 0.4) }));
+                platformMesh.position.set(x, height + stepHeight/2, z);
+                platformMesh.castShadow = true;
+                scene.add(platformMesh);
+
+                const platformBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(2, stepHeight/2, 2)), position: new CANNON.Vec3(x, height + stepHeight/2, z) });
+                physicsWorld.addBody(platformBody);
+            }
+    }
+
+     groundHitAt(terrainMesh, x, z) {
+        const rc = new THREE.Raycaster(new THREE.Vector3(x, 200, z), new THREE.Vector3(0, -1, 0));
+        const hits = rc.intersectObject(terrainMesh);
+        return hits.length ? hits[0] : null;
+    }
+    
+    createForest(terrainMesh, center, radius, count) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = Math.random() * radius;
+            const x = center.x + Math.cos(angle) * r;
+            const z = center.z + Math.sin(angle) * r;
+            const hit = this.groundHitAt(terrainMesh, x, z);
+            if (hit && hit.point.y > 1) this.createTree(hit.point);
+        }
+    }
+
+    createBoulderField(terrainMesh, center, radius, count) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = Math.random() * radius;
+            const x = center.x + Math.cos(angle) * r;
+            const z = center.z + Math.sin(angle) * r;
+            const hit = this.groundHitAt(terrainMesh, x, z);
+            if (hit && hit.point.y > 0.5) this.createStoneNode(hit.point);
+        }
+    }
+
+    createClayDeposit(terrainMesh, center, radius, count) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = Math.random() * radius;
+            const x = center.x + Math.cos(angle) * r;
+            const z = center.z + Math.sin(angle) * r;
+            const hit = this.groundHitAt(terrainMesh, x, z);
+            if (hit && hit.point.y > 0.5) this.createClayNode(hit.point);
+        }
+    }
+
+    createTree(position) {
+        const group = new THREE.Group();
+         group.position.copy(position);
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 5, 8), materials.tree.trunk);
+         trunk.position.y = 2.5;
+         trunk.castShadow = true;
+        const leaves = new THREE.Mesh(new THREE.ConeGeometry(2, 4, 8), materials.tree.leaves);
+         leaves.position.y = 6;
+         leaves.castShadow = true;
+         group.add(trunk, leaves);
+         scene.add(group);
+        const body = new CANNON.Body({ mass: 0, position: new CANNON.Vec3(position.x, position.y + 2.5, position.z), shape: new CANNON.Cylinder(0.4, 0.4, 5, 8) });
+         physicsWorld.addBody(body);
+         interactiveObjects.set(group, { body: body, type: 'tree', health: 100 });
+    }
+
+    createStoneNode(position) {
+        const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 0), materials.stoneNode);
+         mesh.position.copy(position).y += 0.5;
+         mesh.castShadow = true;
+         scene.add(mesh);
+        const body = new CANNON.Body({ mass: 0, position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z), shape: new CANNON.Sphere(1.5) });
+         physicsWorld.addBody(body);
+         interactiveObjects.set(mesh, { body: body, type: 'stone', health: 150 });
+    }
+
+    createClayNode(position) {
+        const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(1.2, 0), materials.clayNode);
+         mesh.position.copy(position).y += 0.4;
+         mesh.castShadow = true;
+         scene.add(mesh);
+        const body = new CANNON.Body({ mass: 0, position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z), shape: new CANNON.Sphere(1.2) });
+         physicsWorld.addBody(body);
+         interactiveObjects.set(mesh, { body: body, type: 'clay', health: 120 });
+    }
+
+    createKiln(position) {
+        const group = new THREE.Group();
+         group.position.copy(position);
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 1, 8), materials.kiln);
+         base.position.y = 0.5;
+         base.castShadow = true;
+        const chamber = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 1.5, 8), materials.kiln);
+         chamber.position.y = 1.75;
+         chamber.castShadow = true;
+        const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1, 6), materials.kiln);
+         chimney.position.set(0.8, 2.8, 0);
+         chimney.castShadow = true;
+         group.add(base, chamber, chimney);
+         scene.add(group);
+        const body = new CANNON.Body({
+         mass: 0,
+         position: new CANNON.Vec3(position.x, position.y + 1, position.z),
+         shape: new CANNON.Cylinder(1.8, 1.8, 2.5, 8)
+        });
+         physicsWorld.addBody(body);
+        const kilnData = {
+         body: body,
+         type: 'kiln',
+         clay: 0,
+         fuel: 0,
+         output: 0,
+         smelting: false,
+         progress: 0,
+         smeltTimer: 0
+        };
+         interactiveObjects.set(group, kilnData);
+        return kilnData;
+    }
+
+     initPlayer() {
+         player = new Player();
+    }
+
+     initUI() {
+         uiManager = new UIManager();
+    }
+
+     startGame() {
+         document.getElementById('loading-screen').style.opacity = '0';
+         setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
+        this.animate();
+    }
+
+     animate() {
+         requestAnimationFrame(() => this.animate());
+        const deltaTime = Math.min(0.05, clock.getDelta());
+        
+        // Remove bodies BEFORE physics step to prevent errors
+        while (this.bodiesToRemove.length > 0) {
+            const body = this.bodiesToRemove.shift();
+            if (body && physicsWorld.bodies.includes(body)) {
+                physicsWorld.removeBody(body);
+            }
+        }
+        
+         physicsWorld.step(1/60, deltaTime, 10);
+         player.update(deltaTime);
+         uiManager.update(deltaTime);
+         interactiveObjects.forEach((obj, mesh) => {
+            if (obj.body && obj.body.type !== CANNON.Body.STATIC && mesh.parent) {
+                 mesh.position.copy(obj.body.position);
+                 mesh.quaternion.copy(obj.body.quaternion);
+            }
+            if (obj.type === 'kiln' && obj.smelting) {
+                 obj.smeltTimer -= deltaTime;
+                 obj.progress = 1 - (obj.smeltTimer / GAME_CONFIG.kiln.smeltTime);
+                if (obj.smeltTimer <= 0) {
+                     obj.smelting = false;
+                     obj.progress = 0;
+                     obj.smeltTimer = 0;
+                    const bricksToMake = Math.floor(obj.clay / GAME_CONFIG.kiln.clayPerBrick);
+                    const bricksMade = Math.min(bricksToMake, obj.fuel);
+                     obj.clay -= bricksMade * GAME_CONFIG.kiln.clayPerBrick;
+                     obj.fuel -= bricksMade;
+                     obj.output += bricksMade;
+                    if (gameState.activeKiln === obj) {
+                         uiManager.showNotification(`Smelting complete! Made ${bricksMade} brick${bricksMade !== 1 ? 's' : ''}.`);
+                    }
+                }
+            }
+        });
+        this.updateSun();
+         renderer.render(scene, camera);
+    }
+
+     onWindowResize() {
+         camera.aspect = window.innerWidth / window.innerHeight;
+         camera.updateProjectionMatrix();
+         renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    createResourceDrops(type, position) {
+        const count = 3 + Math.floor(Math.random() * 3);
+        for(let i=0; i<count; i++) {
+            const resourceType = type === 'tree' ? 'wood' : type === 'stone' ? 'stone' : 'clay';
+            let geom;
+            if (resourceType === 'wood') geom = new THREE.CylinderGeometry(0.2, 0.2, 1);
+            else if (resourceType === 'stone') geom = new THREE.DodecahedronGeometry(0.3, 0);
+            else geom = new THREE.OctahedronGeometry(0.25, 0);
+            const mesh = new THREE.Mesh(geom, materials.blocks[resourceType]);
+            mesh.position.copy(position).y += i*0.5;
+            mesh.castShadow = true;
+            scene.add(mesh);
+            const body = new CANNON.Body({ mass: 4, material: this.matBlock, shape: new CANNON.Sphere(0.5) });
+            body.position.copy(mesh.position);
+            body.velocity.set((Math.random()-0.5)*3, Math.random()*3, (Math.random()-0.5)*3);
+            body.linearDamping = 0.35;
+            body.angularDamping = 0.5;
+            physicsWorld.addBody(body);
+            const drop = { body, type: 'drop', resource: resourceType };
+            interactiveObjects.set(mesh, drop);
+            const collisionListener = (e) => {
+                if (e.body === player.body) {
+                    gameState.inventory[resourceType]++;
+                    // Remove listener first, then destroy object safely
+                    body.removeEventListener('collide', collisionListener);
+                    player.destroyObject({mesh, data: drop}, false);
+                }
+            };
+            body.addEventListener('collide', collisionListener);
+        }
+    }
+}
+
+
+class Player {
+    constructor() {
+        this.cameraHolder = new THREE.Object3D();
+        this.cameraHolder.add(camera);
+        scene.add(this.cameraHolder);
+
+        this.body = new CANNON.Body({
+            mass: 70,
+            shape: new CANNON.Sphere(STEP_UP_CONFIG.playerRadius),
+            fixedRotation: true,
+            material: game.matPlayer
+        });
+        this.body.sleepTimeLimit = 0.5; // Prevent the body from falling asleep too easily
+
+        this.body.position.set(0, 30, 5);
+        physicsWorld.addBody(this.body);
+
+        this.isPointerLocked = false;
+        this.isSwinging = false;
+        this.swingCooldown = 0;
+        this.swingIndex = 0;
+        this.lastSafePos = new CANNON.Vec3(0, this.body.position.y, 0);
+        this.raycaster = new THREE.Raycaster();
+        
+        // Build preview
+        this.buildPreview = new THREE.Mesh(geometries.block, new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 }));
+        this.buildPreview.visible = false;
+        scene.add(this.buildPreview);
+        
+        // Held Tool
+        this.heldToolMesh = new THREE.Group();
+        this.cameraHolder.add(this.heldToolMesh);
+        this.heldToolMesh.position.set(0.5, -0.4, -1);
+        this.heldToolMesh.rotation.y = Math.PI;
+        this.damageTable = {
+            axe: { tree: 30, stone: 8, clay: 12, block: 10 },
+            pickaxe: { stone: 35, tree: 8, clay: 30, block: 20 }
+        };
+
+        // Smooth movement state
+        this.targetCameraPosition = new THREE.Vector3();
+        this.currentCameraPosition = new THREE.Vector3(0, 31.6, 5); // Initial position
+        this.cameraBob = 0;
+        this.cameraBobSpeed = 0;
+        this.walkBobTime = 0;
+        
+        this.setupControls();
+        this.updateHeldTool();
+    }
+
+    setupControls() {
+        renderer.domElement.addEventListener('click', () => {
+            if (!this.isPointerLocked) renderer.domElement.requestPointerLock();
+            else this.handleAction();
+        });
+        renderer.domElement.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            if (this.isPointerLocked) this.handleRightClick();
+        });
+        document.addEventListener('pointerlockchange', () => {
+            this.isPointerLocked = !!document.pointerLockElement;
+        });
+        document.addEventListener('mousemove', e => {
+            if (!this.isPointerLocked) return;
+            this.cameraHolder.rotation.y -= e.movementX * GAME_CONFIG.player.mouseSensitivity;
+            camera.rotation.x -= e.movementY * GAME_CONFIG.player.mouseSensitivity;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        });
+        document.addEventListener('wheel', e => {
+            if (this.isPointerLocked && gameState.buildMode) {
+                const blockTypes = ['wood', 'stone', 'clay', 'brick', 'kiln'];
+                const currentIndex = blockTypes.indexOf(gameState.selectedBlockType);
+                const nextIndex = (currentIndex + (e.deltaY > 0 ? 1 : -1) + blockTypes.length) % blockTypes.length;
+                gameState.selectedBlockType = blockTypes[nextIndex];
+            }
+        });
+    }
+
+    update(delta) {
+        this.swingCooldown = Math.max(0, this.swingCooldown - delta);
+        
+        checkGrounded();
+        processStepUp(delta);
+        
+        this.updateMovement(delta);
+        this.updateInteraction();
+        this.updateStamina(delta);
+        this.updateCamera(delta);
+
+        if (grounded) this.lastSafePos.copy(this.body.position);
+
+        if (this.body.position.y < -20) {
+            this.body.position.copy(this.lastSafePos);
+            this.body.velocity.set(0, 0, 0);
+            this.currentCameraPosition.copy(this.body.position).y += 1.6;
+            stepUpTarget = null;
+        }
+    }
+
+    updateMovement(delta) {
+        this.body.wakeUp(); // Ensure the physics body is always responsive to input
+
+        const isSprinting = keys['ShiftLeft'] && gameState.stamina > 0;
+        const currentSpeed = isSprinting ? GAME_CONFIG.player.sprintSpeed : GAME_CONFIG.player.speed;
+        
+        const inputVector = new THREE.Vector3();
+        if (keys['KeyW']) inputVector.z = -1;
+        if (keys['KeyS']) inputVector.z = 1;
+        if (keys['KeyA']) inputVector.x = -1;
+        if (keys['KeyD']) inputVector.x = 1;
+
+        if (inputVector.length() > 0) {
+            inputVector.normalize();
+            const euler = new THREE.Euler(0, this.cameraHolder.rotation.y, 0, 'YXZ');
+            const movement = inputVector.applyEuler(euler).multiplyScalar(currentSpeed);
+            
+            const targetVelocity = new THREE.Vector3(movement.x, this.body.velocity.y, movement.z);
+
+            if (grounded && !stepUpTarget) {
+                const movementDir = new THREE.Vector3(movement.x, 0, movement.z).normalize();
+                attemptStepUp(movementDir);
+                
+                const smoothing = STEP_UP_CONFIG.movementSmoothing;
+                this.body.velocity.x = THREE.MathUtils.lerp(this.body.velocity.x, targetVelocity.x, smoothing);
+                this.body.velocity.z = THREE.MathUtils.lerp(this.body.velocity.z, targetVelocity.z, smoothing);
+                this.walkBobTime += delta * 5;
+                this.cameraBobSpeed = 0.02;
+
+            } else if (!grounded) {
+                const airSmoothing = STEP_UP_CONFIG.airControlSmoothing;
+                this.body.velocity.x = THREE.MathUtils.lerp(this.body.velocity.x, targetVelocity.x, airSmoothing);
+                this.body.velocity.z = THREE.MathUtils.lerp(this.body.velocity.z, targetVelocity.z, airSmoothing);
+            }
+            if (isSprinting) gameState.stamina -= 5 * delta;
+        } else {
+             if (grounded && !stepUpTarget) {
+                this.body.velocity.x *= 0.9;
+                this.body.velocity.z *= 0.9;
+             }
+             this.cameraBobSpeed *= 0.9;
+        }
+
+        if (keys['Space'] && grounded && this.body.velocity.y > -2 && !stepUpTarget && gameState.stamina >= 10) {
+            this.body.velocity.y = GAME_CONFIG.player.jumpForce;
+            gameState.stamina -= 2.5;
+        }
+
+        if (this.body.velocity.y < -30) {
+            this.body.velocity.y = -30;
+        }
+    }
+
+    updateCamera(delta) {
+        this.targetCameraPosition.set(this.body.position.x, this.body.position.y + 1.6, this.body.position.z);
+        this.currentCameraPosition.lerp(this.targetCameraPosition, STEP_UP_CONFIG.cameraSmoothing);
+        
+        this.cameraHolder.position.copy(this.currentCameraPosition);
+
+        if (grounded && !stepUpTarget) {
+            this.cameraHolder.position.y += Math.sin(this.walkBobTime) * this.cameraBobSpeed;
+        }
+
+        if (stepUpTarget) {
+            this.cameraBob = Math.sin(stepUpProgress * Math.PI) * 0.05;
+            this.cameraHolder.position.y += this.cameraBob;
+        }
+    }
+
+    updateStamina(delta) {
+        if (!keys['ShiftLeft'] && new THREE.Vector3(this.body.velocity.x, 0, this.body.velocity.z).length() < GAME_CONFIG.player.speed - 1) {
+            gameState.stamina = Math.min(gameState.maxStamina, gameState.stamina + 15 * delta);
+        }
+    }
+
+    updateInteraction() {
+        this.raycaster.setFromCamera({ x: 0, y: 0 }, camera);
+        const meshes = Array.from(interactiveObjects.keys());
+        const intersects = this.raycaster.intersectObjects(meshes, true);
+        this.currentTarget = null;
+        if (intersects.length > 0 && intersects[0].distance < GAME_CONFIG.build.reach) {
+            let mesh = intersects[0].object;
+            while (mesh.parent && !interactiveObjects.has(mesh)) mesh = mesh.parent;
+            if(interactiveObjects.has(mesh)) this.currentTarget = { mesh, data: interactiveObjects.get(mesh) };
+        }
+        uiManager.crosshair.classList.toggle('active', !!this.currentTarget && this.currentTarget.data.type !== 'drop');
+        this.updateBuildPreview();
+    }
+
+    updateBuildPreview() {
+        if (!gameState.buildMode) {
+            this.buildPreview.visible = false;
+            return;
+        }
+        const allMeshes = scene.children.filter(c => c.isMesh || c.isGroup);
+        const intersects = this.raycaster.intersectObjects(allMeshes, true);
+        const validIntersect = intersects.find(i => i.object !== this.buildPreview && i.distance < GAME_CONFIG.build.reach);
+        if (validIntersect) {
+            const point = validIntersect.point;
+            const normal = validIntersect.face.normal;
+            const newPos = new THREE.Vector3().copy(point).add(normal.multiplyScalar(GAME_CONFIG.build.gridSize / 2));
+            this.buildPreview.position.set(
+                Math.round(newPos.x / GAME_CONFIG.build.gridSize) * GAME_CONFIG.build.gridSize,
+                Math.round(newPos.y / GAME_CONFIG.build.gridSize) * GAME_CONFIG.build.gridSize,
+                Math.round(newPos.z / GAME_CONFIG.build.gridSize) * GAME_CONFIG.build.gridSize
+            );
+            this.buildPreview.visible = true;
+        } else {
+            this.buildPreview.visible = false;
+        }
+    }
+
+    handleAction() {
+        if (gameState.buildMode) {
+            this.placeBlock();
+        } else {
+            this.useTool();
+        }
+    }
+
+    handleStation() {
+        if (this.currentTarget && this.currentTarget.data.type === 'kiln') {
+            uiManager.openKiln(this.currentTarget.data);
+        }
+    }
+
+    handleRightClick() {
+        if (gameState.buildMode && this.currentTarget && this.currentTarget.data.type === 'block') {
+            this.removeBlock(this.currentTarget);
+        }
+    }
+
+    useTool() {
+        if (this.isSwinging || this.swingCooldown > 0 || !this.currentTarget || gameState.stamina < 5) return;
+        const item = uiManager.hotbarSlots[gameState.activeSlot].dataset.item;
+        if (!['axe','pickaxe'].includes(item)) return;
+        this.isSwinging = true;
+        this.swingCooldown = 0.25;
+        const target = this.currentTarget;
+        const variant = this.swingIndex++ % 3;
+        this.animateSwing(item, variant, () => {
+            const table = this.damageTable[item] || {};
+            const dmg = table[target.data.type] || 3;
+            target.data.health = (target.data.health ?? 100) - dmg;
+            if (target.data.health <= 0) {
+                this.destroyObject(target);
+            }
+            this.isSwinging = false;
+        });
+        gameState.stamina -= 5;
+    }
+
+    animateSwing(tool, variant, onComplete) {
+        const tl = gsap.timeline({ onComplete });
+        const hand = this.heldToolMesh;
+        const baseRot = { x: hand.rotation.x, y: hand.rotation.y, z: hand.rotation.z };
+        const basePos = { x: hand.position.x, y: hand.position.y, z: hand.position.z };
+        
+        hand.rotation.set(baseRot.x, baseRot.y, baseRot.z);
+        hand.position.set(basePos.x, basePos.y, basePos.z);
+        
+        if (tool === 'axe') {
+            // Axe: Horizontal slicing motions with variety
+            const speed = 0.18;
+            const backSpeed = 0.14;
+            
+            if (variant === 0) {
+                // Left to right horizontal slice
+                tl.to(hand.rotation, { z: -0.8, x: 0.4, y: Math.PI - 0.3, duration: backSpeed, ease: "power2.out" })
+                  .to(hand.position, { x: 0.3, y: -0.2, z: -0.8, duration: backSpeed, ease: "power2.out" }, "<")
+                  .to(hand.rotation, { z: 0.9, x: -0.2, y: Math.PI + 0.4, duration: speed, ease: "power4.in" })
+                  .to(hand.position, { x: 0.7, y: -0.6, z: -1.2, duration: speed, ease: "power4.in" }, "<");
+            } else if (variant === 1) {
+                // Right to left diagonal slice
+                tl.to(hand.rotation, { z: 0.9, x: 0.5, y: Math.PI + 0.4, duration: backSpeed, ease: "power2.out" })
+                  .to(hand.position, { x: 0.4, y: -0.1, z: -0.9, duration: backSpeed, ease: "power2.out" }, "<")
+                  .to(hand.rotation, { z: -1.1, x: -0.3, y: Math.PI - 0.5, duration: speed, ease: "power4.in" })
+                  .to(hand.position, { x: 0.2, y: -0.7, z: -1.3, duration: speed, ease: "power4.in" }, "<");
+            } else {
+                // Upward diagonal slice
+                tl.to(hand.rotation, { z: 0.3, x: 0.8, y: Math.PI + 0.2, duration: backSpeed, ease: "power2.out" })
+                  .to(hand.position, { x: 0.2, y: -0.3, z: -0.7, duration: backSpeed, ease: "power2.out" }, "<")
+                  .to(hand.rotation, { z: -0.4, x: -0.9, y: Math.PI - 0.3, duration: speed, ease: "power4.in" })
+                  .to(hand.position, { x: 0.8, y: -0.8, z: -1.4, duration: speed, ease: "power4.in" }, "<");
+            }
+        } else if (tool === 'pickaxe') {
+            // Pickaxe: Powerful overhead strikes
+            const speed = 0.22;
+            const backSpeed = 0.18;
+            const cameraShake = 0.06;
+            
+            if (variant === 0) {
+                // Classic overhead strike
+                tl.to(hand.rotation, { x: 1.2, z: 0.1, duration: backSpeed, ease: "power2.out" })
+                  .to(hand.position, { y: -0.1, z: -0.6, duration: backSpeed, ease: "power2.out" }, "<")
+                  .to(hand.rotation, { x: -1.8, z: 0, duration: speed, ease: "power4.in" })
+                  .to(hand.position, { y: -0.9, z: -1.6, duration: speed, ease: "power4.in" }, "<");
+            } else if (variant === 1) {
+                // Angled overhead strike from right
+                tl.to(hand.rotation, { x: 1.0, z: 0.6, y: Math.PI + 0.3, duration: backSpeed, ease: "power2.out" })
+                  .to(hand.position, { x: 0.3, y: -0.1, z: -0.5, duration: backSpeed, ease: "power2.out" }, "<")
+                  .to(hand.rotation, { x: -1.6, z: -0.2, y: Math.PI - 0.2, duration: speed, ease: "power4.in" })
+                  .to(hand.position, { x: 0.1, y: -0.8, z: -1.7, duration: speed, ease: "power4.in" }, "<");
+            } else {
+                // Angled overhead strike from left
+                tl.to(hand.rotation, { x: 1.1, z: -0.5, y: Math.PI - 0.4, duration: backSpeed, ease: "power2.out" })
+                  .to(hand.position, { x: 0.1, y: -0.1, z: -0.6, duration: backSpeed, ease: "power2.out" }, "<")
+                  .to(hand.rotation, { x: -1.7, z: 0.3, y: Math.PI + 0.3, duration: speed, ease: "power4.in" })
+                  .to(hand.position, { x: 0.4, y: -0.9, z: -1.8, duration: speed, ease: "power4.in" }, "<");
+            }
+            
+            // Enhanced camera shake for pickaxe
+            tl.add(gsap.to(camera.rotation, { 
+                x: camera.rotation.x - cameraShake, 
+                z: camera.rotation.z + (Math.random() > 0.5 ? cameraShake*0.8 : -cameraShake*0.8), 
+                duration: speed * 0.7, 
+                ease: "power2.out" 
+            }), "<");
+        }
+        
+        // Standard camera shake for axe
+        if (tool === 'axe') {
+            tl.add(gsap.to(camera.rotation, { 
+                x: camera.rotation.x - 0.04, 
+                z: camera.rotation.z + (Math.random() > 0.5 ? 0.03 : -0.03), 
+                duration: 0.12, 
+                ease: "power2.out" 
+            }), "<");
+        }
+        
+        // Return to base position
+        tl.to(camera.rotation, { x: camera.rotation.x, z: camera.rotation.z, duration: 0.15, ease: "power2.inOut" }, ">")
+          .to(hand.rotation, { x: baseRot.x, y: baseRot.y, z: baseRot.z, duration: 0.15, ease: "power2.inOut" }, "<")
+          .to(hand.position, { x: basePos.x, y: basePos.y, z: basePos.z, duration: 0.15, ease: "power2.inOut" }, "<");
+    }
+
+    placeBlock() {
+        if (!this.buildPreview.visible) return;
+        const blockType = gameState.selectedBlockType;
+        if (blockType === 'kiln') {
+            if (gameState.inventory.brick >= 10 && gameState.inventory.stone >= 5) {
+                game.createKiln(this.buildPreview.position.clone());
+                gameState.inventory.brick -= 10;
+                gameState.inventory.stone -= 5;
+            }
+            return;
+        }
+        if (gameState.inventory[blockType] <= 0) return;
+        const mesh = new THREE.Mesh(geometries.block, materials.blocks[blockType]);
+        mesh.position.copy(this.buildPreview.position);
+        mesh.castShadow = mesh.receiveShadow = true;
+        scene.add(mesh);
+        const body = new CANNON.Body({
+            mass: 0,
+            material: game.matBlock,
+            position: new CANNON.Vec3().copy(mesh.position),
+            shape: new CANNON.Box(new CANNON.Vec3(1,1,1))
+        });
+        body.sleepSpeedLimit = 0.2;
+        body.sleepTimeLimit = 0.5;
+        physicsWorld.addBody(body);
+        interactiveObjects.set(mesh, { body, type: 'block', blockType: blockType });
+        gameState.inventory[blockType]--;
+    }
+
+    removeBlock(target) {
+        gameState.inventory[target.data.blockType]++;
+        this.destroyObject(target, false);
+    }
+
+    destroyObject(target, createDrops = true) {
+        scene.remove(target.mesh);
+        
+        // Queue body for removal instead of immediate removal
+        if (target.data.body) {
+            game.bodiesToRemove.push(target.data.body);
+            target.data.body = null; // Clear reference immediately
+        }
+        
+        interactiveObjects.delete(target.mesh);
+        if (createDrops) game.createResourceDrops(target.data.type, target.mesh.position);
+    }
+
+
+
+    createAxe() {
+        const axe = new THREE.Group();
+        
+        // Enhanced handle with realistic proportions and wood grain orientation
+        const handleShape = new THREE.LatheGeometry([
+            new THREE.Vector2(0.03, -0.6),
+            new THREE.Vector2(0.035, -0.4),
+            new THREE.Vector2(0.04, -0.2),
+            new THREE.Vector2(0.055, 0),
+            new THREE.Vector2(0.06, 0.2),
+            new THREE.Vector2(0.045, 0.4),
+            new THREE.Vector2(0.035, 0.6)
+        ], 12);
+        const handle = new THREE.Mesh(handleShape, materials.tools.handle);
+        axe.add(handle);
+        
+        // Realistic axe eye (socket where handle meets head)
+        const eyeGeom = new THREE.CylinderGeometry(0.07, 0.09, 0.15, 8);
+        const eye = new THREE.Mesh(eyeGeom, materials.tools.axeBlade);
+        eye.position.y = 0.52;
+        eye.rotation.z = Math.PI / 2;
+        axe.add(eye);
+        
+        // Main cutting blade with realistic wedge shape
+        const bladePoints = [];
+        for (let i = 0; i <= 20; i++) {
+            const t = i / 20;
+            const angle = t * Math.PI;
+            const radius = 0.3 * Math.sin(angle) * (1 - t * 0.3); // Curved cutting edge
+            bladePoints.push(new THREE.Vector2(radius, -0.15 + t * 0.3));
+        }
+        const bladeGeom = new THREE.LatheGeometry(bladePoints, 6);
+        bladeGeom.rotateZ(Math.PI / 2);
+        const blade = new THREE.Mesh(bladeGeom, materials.tools.axeBlade);
+        blade.position.set(0.12, 0.52, 0);
+        blade.scale.set(1.2, 1, 0.6);
+        axe.add(blade);
+        
+        // Poll (back of axe head) with hammerface
+        const pollGeom = new THREE.CylinderGeometry(0.04, 0.06, 0.08, 8);
+        const poll = new THREE.Mesh(pollGeom, materials.tools.axeBlade);
+        poll.rotation.z = Math.PI / 2;
+        poll.position.set(-0.08, 0.52, 0);
+        axe.add(poll);
+        
+        return axe;
+    }
+
+    createPickaxe() {
+        const pickaxe = new THREE.Group();
+        
+        // Robust handle for heavy-duty mining tool
+        const handleShape = new THREE.LatheGeometry([
+            new THREE.Vector2(0.035, -0.7),
+            new THREE.Vector2(0.04, -0.5),
+            new THREE.Vector2(0.045, -0.3),
+            new THREE.Vector2(0.055, -0.1),
+            new THREE.Vector2(0.065, 0.1),
+            new THREE.Vector2(0.05, 0.3),
+            new THREE.Vector2(0.04, 0.5),
+            new THREE.Vector2(0.035, 0.7)
+        ], 12);
+        const handle = new THREE.Mesh(handleShape, materials.tools.handle);
+        pickaxe.add(handle);
+        
+        // Heavy iron head assembly
+        const headCore = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.1), materials.tools.pickaxeHead);
+        headCore.position.y = 0.65;
+        pickaxe.add(headCore);
+        
+        // Socket for handle attachment
+        const socket = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.25, 8), materials.tools.pickaxeHead);
+        socket.position.y = 0.55;
+        pickaxe.add(socket);
+        
+        // Sharp pick point (primary)
+        const pickPoints = [];
+        for (let i = 0; i <= 15; i++) {
+            const t = i / 15;
+            const radius = 0.03 * (1 - t * 0.9); // Tapers to sharp point
+            pickPoints.push(new THREE.Vector2(radius, t * 0.2));
+        }
+        const pickGeom = new THREE.LatheGeometry(pickPoints, 8);
+        pickGeom.rotateZ(Math.PI / 2);
+        
+        const mainPick = new THREE.Mesh(pickGeom, materials.tools.pickaxeHead);
+        mainPick.position.set(0.18, 0.65, 0);
+        mainPick.scale.set(1.5, 1, 1);
+        pickaxe.add(mainPick);
+        
+        // Adze (flat blade opposite the pick)
+        const adzeGeom = new THREE.BoxGeometry(0.15, 0.08, 0.02);
+        const adze = new THREE.Mesh(adzeGeom, materials.tools.pickaxeHead);
+        adze.position.set(-0.12, 0.65, 0);
+        adze.rotation.y = Math.PI / 6; // Slight angle for cutting
+        pickaxe.add(adze);
+        
+        return pickaxe;
+    }
+
+    updateHeldTool() {
+        while(this.heldToolMesh.children.length) this.heldToolMesh.remove(this.heldToolMesh.children[0]);
+        const item = uiManager.hotbarSlots[gameState.activeSlot].dataset.item;
+        const itemIsBlock = ['wood', 'stone', 'clay', 'brick', 'kiln'].includes(item);
+        gameState.buildMode = itemIsBlock;
+        if(itemIsBlock) gameState.selectedBlockType = item;
+        
+        let toolMesh;
+        if(item === 'axe') {
+            toolMesh = this.createAxe();
+        } else if(item === 'pickaxe') {
+            toolMesh = this.createPickaxe();
+        }
+        if (toolMesh) this.heldToolMesh.add(toolMesh);
+    }
+}
+
+class UIManager {
+    constructor() {
+        this.notificationContainer = document.getElementById('notification-container');
+        this.healthBar = document.getElementById('health-bar');
+        this.staminaBar = document.getElementById('stamina-bar');
+        this.crosshair = document.getElementById('crosshair');
+        this.buildControls = document.getElementById('build-controls');
+        this.selectedBlockText = document.getElementById('selected-block-text');
+        this.hotbarSlots = document.querySelectorAll('.inventory-slot');
+        this.inventoryCounts = {
+            wood: document.getElementById('inv-wood'),
+            stone: document.getElementById('inv-stone'),
+            clay: document.getElementById('inv-clay'),
+            brick: document.getElementById('inv-brick')
+        };
+        this.generatedTypes = new Set();
+        this.setupEventListeners();
+        this.updateHotbar();
+        this.setupKilnUI();
+    }
+
+    setupEventListeners() {
+        document.getElementById('settings-toggle').addEventListener('click', () => {
+            document.getElementById('settings-panel').classList.toggle('hidden');
+        });
+        ['gen-grass', 'gen-wood', 'gen-stone', 'gen-brick'].forEach(id => {
+            document.getElementById(id).addEventListener('click', () => {
+                const [_, type] = id.split('-');
+                this.generateTextureFor(type);
+            });
+        });
+        
+        // Tool texture generation buttons
+        document.getElementById('gen-handle').addEventListener('click', () => this.generateToolTexture('handle'));
+        document.getElementById('gen-axe-blade').addEventListener('click', () => this.generateToolTexture('axeBlade'));
+        document.getElementById('gen-pick-head').addEventListener('click', () => this.generateToolTexture('pickaxeHead'));
+        document.getElementById('gen-all-tools').addEventListener('click', () => this.generateAllToolTextures());
+        
+        // AI tool enhancement buttons  
+        document.getElementById('gen-realistic-axe').addEventListener('click', () => this.generateRealisticTool('axe'));
+        document.getElementById('gen-realistic-pickaxe').addEventListener('click', () => this.generateRealisticTool('pickaxe'));
+        document.getElementById('live-textures-toggle').addEventListener('change', (e) => {
+            gameState.liveTextures = e.target.checked;
+            if (!e.target.checked && this.bgInterval) {
+                clearInterval(this.bgInterval); this.bgInterval = null;
+            }
+        });
+        const craftBtn = document.getElementById('craft-brick');
+        if (craftBtn) craftBtn.addEventListener('click', () => this.craftBricks(5));
+    }
+
+    setupKilnUI() {
+        document.getElementById('kiln-close').addEventListener('click', () => this.closeKiln());
+        document.getElementById('kiln-start').addEventListener('click', () => this.startSmelting());
+        document.getElementById('kiln-clay-slot').addEventListener('click', () => this.addToKiln('clay'));
+        document.getElementById('kiln-fuel-slot').addEventListener('click', () => this.addToKiln('fuel'));
+        document.getElementById('kiln-output-slot').addEventListener('click', () => this.takeFromKiln());
+    }
+
+    openKiln(kilnData) {
+        gameState.kilnOpen = true;
+        gameState.activeKiln = kilnData;
+        document.getElementById('kiln-panel').classList.remove('hidden');
+        this.updateKilnUI();
+    }
+
+    closeKiln() {
+        gameState.kilnOpen = false;
+        gameState.activeKiln = null;
+        document.getElementById('kiln-panel').classList.add('hidden');
+    }
+
+    addToKiln(type) {
+        if (!gameState.activeKiln) return;
+        if (type === 'clay' && gameState.inventory.clay > 0) {
+            const amount = Math.min(gameState.inventory.clay, 10);
+            gameState.inventory.clay -= amount;
+            gameState.activeKiln.clay += amount;
+        } else if (type === 'fuel' && gameState.inventory.wood > 0) {
+            const amount = Math.min(gameState.inventory.wood, 10);
+            gameState.inventory.wood -= amount;
+            gameState.activeKiln.fuel += amount;
+        }
+        this.updateKilnUI();
+    }
+
+    takeFromKiln() {
+        if (!gameState.activeKiln || gameState.activeKiln.output <= 0) return;
+        gameState.inventory.brick += gameState.activeKiln.output;
+        gameState.activeKiln.output = 0;
+        this.updateKilnUI();
+    }
+
+    startSmelting() {
+        const kiln = gameState.activeKiln;
+        if (!kiln || kiln.smelting || kiln.clay < GAME_CONFIG.kiln.clayPerBrick || kiln.fuel < GAME_CONFIG.kiln.fuelPerBrick) {
+            this.showNotification('Need at least 2 clay and 1 wood to start smelting.');
+            return;
+        }
+        kiln.smelting = true;
+        kiln.smeltTimer = GAME_CONFIG.kiln.smeltTime;
+        kiln.progress = 0;
+        this.showNotification('Smelting started!');
+    }
+
+    updateKilnUI() {
+        if (!gameState.activeKiln) return;
+        const kiln = gameState.activeKiln;
+        document.getElementById('kiln-clay-count').textContent = kiln.clay;
+        document.getElementById('kiln-fuel-count').textContent = kiln.fuel;
+        document.getElementById('kiln-output-count').textContent = kiln.output;
+        document.getElementById('kiln-progress').style.width = `${kiln.progress * 100}%`;
+        document.getElementById('kiln-timer').textContent = `${Math.ceil(kiln.smeltTimer)}s`;
+        document.getElementById('kiln-clay-slot').classList.toggle('filled', kiln.clay > 0);
+        document.getElementById('kiln-fuel-slot').classList.toggle('filled', kiln.fuel > 0);
+        document.getElementById('kiln-output-slot').classList.toggle('filled', kiln.output > 0);
+        const canStart = kiln.clay >= GAME_CONFIG.kiln.clayPerBrick && kiln.fuel >= GAME_CONFIG.kiln.fuelPerBrick && !kiln.smelting;
+        document.getElementById('kiln-start').disabled = !canStart;
+        document.getElementById('kiln-start').style.opacity = canStart ? '1' : '0.5';
+    }
+
+    generateTextureFor(type, isBackground = false) {
+        if (this.generatedTypes.has(type) && !isBackground) {
+            this.showNotification(`${type} texture already set.`);
+            return;
+        }
+        if (type === 'grass') {
+            this.showNotification('Grass texture is now generated procedurally.');
+            return;
+        }
+        const material = materials.blocks[type];
+        const prompt = `A seamless, realistic, top-down ${type} texture for a 3D game.`;
+        this.generateTexture(material, prompt).then(() => {
+            this.generatedTypes.add(type);
+            if (isBackground) this.showNotification(`World Updated: New ${type} texture!`);
+        });
+    }
+
+    showNotification(message) {
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = message;
+        this.notificationContainer.appendChild(notification);
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+
+    update(deltaTime) {
+        this.healthBar.style.width = `${gameState.health}%`;
+        this.staminaBar.style.width = `${gameState.stamina}%`;
+        const ht = document.getElementById('health-text');
+        const st = document.getElementById('stamina-text');
+        if (ht) ht.textContent = `${Math.round(gameState.health)}/${gameState.maxHealth}`;
+        if (st) st.textContent = `${Math.round(gameState.stamina)}/${gameState.maxStamina}`;
+        this.buildControls.style.display = gameState.buildMode ? 'block' : 'none';
+        this.selectedBlockText.textContent = gameState.selectedBlockType.charAt(0).toUpperCase() + gameState.selectedBlockType.slice(1);
+        for(const type in this.inventoryCounts) {
+            this.inventoryCounts[type].textContent = gameState.inventory[type];
+        }
+        this.updateHotbar();
+        if (gameState.kilnOpen) {
+            this.updateKilnUI();
+        }
+    }
+
+    updateHotbar() {
+        this.hotbarSlots.forEach((slot, index) => {
+            slot.classList.toggle('active', index === gameState.activeSlot);
+        });
+    }
+
+    craftBricks(amount = 1) {
+        const per = { stone: 2, wood: 1 };
+        let crafted = 0;
+        for (let i = 0; i < amount; i++) {
+            if (gameState.inventory.stone >= per.stone && gameState.inventory.wood >= per.wood) {
+                gameState.inventory.stone -= per.stone;
+                gameState.inventory.wood -= per.wood;
+                gameState.inventory.brick += 1;
+                crafted++;
+            } else break;
+        }
+        if (crafted > 0) this.showNotification(`Crafted ${crafted} brick${crafted > 1 ? 's' : ''}.`);
+        else this.showNotification('Not enough resources: need 2 stone + 1 wood per brick.');
+    }
+
+    async generateToolTexture(toolPart) {
+        const toolPrompts = {
+            handle: "Close-up macro photograph of weathered hickory wood grain texture, deep brown color with natural wood patterns, tool handle wear marks, finger grooves, oiled finish, 4K detail, seamless tileable",
+            axeBlade: "Ultra-high resolution steel axe blade surface, mirror-polished cutting edge transitioning to brushed steel finish, micro scratches, edge geometry, professional metalwork detail, realistic lighting, seamless",
+            pickaxeHead: "Heavy forged iron texture, blacksmith hammer marks, oxidized steel surface, dark metallic finish, industrial tool patina, rust streaks, carbon steel appearance, 4K macro detail"
+        };
+        
+        if (!toolPrompts[toolPart]) return;
+        
+        const material = materials.tools[toolPart];
+        const prompt = toolPrompts[toolPart];
+        
+        // Apply enhanced material properties before texture generation
+        if (toolPart === 'handle') {
+            material.roughness = 0.8;
+            material.metalness = 0.0;
+        } else if (toolPart === 'axeBlade') {
+            material.roughness = 0.1;
+            material.metalness = 0.95;
+        } else if (toolPart === 'pickaxeHead') {
+            material.roughness = 0.5;
+            material.metalness = 0.85;
+        }
+        
+        await this.generateTexture(material, prompt);
+        this.showNotification(`Enhanced ${toolPart.charAt(0).toUpperCase() + toolPart.slice(1)} texture applied!`);
+    }
+
+    async generateRealisticTool(toolType) {
+        this.showNotification(`Generating realistic ${toolType} reference and textures...`);
+        
+        const toolPrompts = {
+            axe: {
+                reference: "A photorealistic professional woodsman's axe, sharp steel blade with wooden handle, studio lighting, high detail, 4K quality",
+                handle: "High-resolution hickory wood texture with realistic grain patterns, weathered from use, natural brown color with slight wear marks",
+                blade: "Professional grade steel axe head texture, polished cutting edge, subtle scratches and tool marks, metallic finish with slight patina"
+            },
+            pickaxe: {
+                reference: "A heavy-duty mining pickaxe, forged iron head with sharp pick point, sturdy wooden handle, professional tool photography, high detail",
+                handle: "Heavy-duty ash wood handle texture, robust grain pattern, darkened from oil and use, professional mining tool quality",
+                blade: "Forged iron pickaxe head texture, blackened steel finish, hammer marks and tool wear, industrial grade mining equipment"
+            }
+        };
+        
+        if (!toolPrompts[toolType]) return;
+        
+        try {
+            // Generate reference image (this creates a mental reference for better texture application)
+            await this.generateTexture(new THREE.MeshBasicMaterial(), toolPrompts[toolType].reference);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Generate enhanced handle texture
+            await this.generateTexture(materials.tools.handle, toolPrompts[toolType].handle);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Generate enhanced blade texture  
+            const bladeKey = toolType === 'axe' ? 'axeBlade' : 'pickaxeHead';
+            await this.generateTexture(materials.tools[bladeKey], toolPrompts[toolType].blade);
+            
+            // Apply enhanced material properties for realism
+            materials.tools.handle.roughness = 0.9;
+            materials.tools.handle.metalness = 0.0;
+            materials.tools.handle.normalScale = new THREE.Vector2(1.5, 1.5);
+            
+            if (toolType === 'axe') {
+                materials.tools.axeBlade.roughness = 0.1;
+                materials.tools.axeBlade.metalness = 0.95;
+                materials.tools.axeBlade.envMapIntensity = 1.2;
+            } else {
+                materials.tools.pickaxeHead.roughness = 0.4;
+                materials.tools.pickaxeHead.metalness = 0.8;
+                materials.tools.pickaxeHead.envMapIntensity = 0.8;
+            }
+            
+            // Force tool update to apply new materials
+            if (player) player.updateHeldTool();
+            
+            this.showNotification(`Realistic ${toolType} generated with enhanced materials!`);
+            
+        } catch (error) {
+            console.error('Realistic tool generation failed:', error);
+            this.showNotification(`Failed to generate realistic ${toolType}`);
+        }
+    }
+
+    async generateAllToolTextures() {
+        this.showNotification('Generating all tool textures...');
+        await this.generateToolTexture('handle');
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Stagger requests
+        await this.generateToolTexture('axeBlade');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await this.generateToolTexture('pickaxeHead');
+        this.showNotification('All tool textures generated!');
+    }
+
+    async generateTexture(material, prompt) {
+        document.getElementById('loader').classList.remove('hidden');
+        try {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+            const payload = { instances: [{ prompt }], parameters: { "sampleCount": 1 } };
+            let result;
+            const maxAttempts = 3;
+            let delay = 1000;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+                    const tempResult = await response.json();
+                    if (tempResult.predictions && tempResult.predictions[0] && tempResult.predictions[0].bytesBase64Encoded) {
+                        result = tempResult;
+                        break;
+                    } else {
+                        throw new Error("API returned empty or invalid prediction.");
+                    }
+                } catch (error) {
+                    console.warn(`Attempt ${attempt + 1} failed: ${error.message}`);
+                    if (attempt < maxAttempts - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                    } else {
+                        throw new Error("Invalid API response after multiple retries.");
+                    }
+                }
+            }
+            if (!result) throw new Error("Invalid API response after multiple retries.");
+            const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+            new THREE.TextureLoader().load(imageUrl, (texture) => {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(1, 1);
+                material.map = texture;
+                material.color.set(0xffffff);
+                material.needsUpdate = true;
+            });
+        } catch (error) {
+            console.error('Texture generation failed:', error);
+            this.showNotification('Texture generation failed.');
+        } finally {
+            document.getElementById('loader').classList.add('hidden');
+        }
+    }
+}
+
+new Game();
+</script>
+</body>
+</html>
